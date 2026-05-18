@@ -1,3 +1,4 @@
+import Link from "next/link";
 import SceneLoader from "@/components/SceneLoader";
 import ContactForm from "@/components/ContactForm";
 
@@ -14,6 +15,12 @@ export default function Home() {
               is-boring<span className="text-purple-400/80">.</span>
             </span>
           </div>
+          <Link
+            href="/portal/login"
+            className="animate-fade-up text-sm text-white/30 hover:text-white/60 transition-colors font-mono"
+          >
+            Client Portal
+          </Link>
         </nav>
 
         {/* Hero */}

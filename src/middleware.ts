@@ -32,21 +32,8 @@ export async function middleware(request: NextRequest) {
       console.error('Middleware auth error:', error.message);
     }
 
-    const pathname = request.nextUrl.pathname;
-
-    // Protect /portal routes
-    if (pathname.startsWith('/portal') && !pathname.startsWith('/portal/login')) {
-      if (!user) {
-        return NextResponse.redirect(new URL('/portal/login', request.url));
-      }
-    }
-
-    // Protect /admin routes
-    if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-      if (!user) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
-      }
-    }
+    // Route protection is handled by (dashboard) layout.tsx server components
+    // Middleware only refreshes the session
   } catch (err) {
     if (err instanceof Error && !err.message.includes('Lock')) {
       console.error('Middleware unexpected error:', err.message);
