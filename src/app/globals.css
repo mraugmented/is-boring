@@ -7,6 +7,24 @@
   --font-mono: var(--font-geist-mono);
 }
 
+:root {
+  --bg-primary: #050505;
+  --bg-elevated: rgba(255, 255, 255, 0.03);
+  --bg-surface: rgba(255, 255, 255, 0.06);
+  --bg-muted: rgba(255, 255, 255, 0.04);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --text-primary: #ededed;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.4);
+  --text-muted: rgba(255, 255, 255, 0.2);
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --radius-sm: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
 @layer base {
   *, *::before, *::after {
     margin: 0;
