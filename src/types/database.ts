@@ -16,8 +16,11 @@ export interface Client {
   contact_email: string | null;
   phone: string | null;
   plan: 'starter' | 'growth' | 'enterprise';
-  status: 'active' | 'inactive' | 'onboarding';
+  status: 'prospect' | 'active' | 'inactive' | 'onboarding';
   notes: string | null;
+  preview_url: string | null;
+  outreach_sent_at: string | null;
+  outreach_message: string | null;
   created_at: string;
   updated_at: string;
 }

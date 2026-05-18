@@ -13,6 +13,8 @@ const statusStyles: Record<string, { bg: string; text: string; dot?: string }> =
   cancelled: { bg: 'bg-red-500/10', text: 'text-red-500', dot: 'bg-red-500' },
   active: { bg: 'bg-green-500/10', text: 'text-green-500', dot: 'bg-green-500' },
   inactive: { bg: 'bg-[var(--bg-muted)]', text: 'text-[var(--text-tertiary)]' },
+  prospect: { bg: 'bg-cyan-500/10', text: 'text-cyan-500', dot: 'bg-cyan-500' },
+  sent: { bg: 'bg-indigo-500/10', text: 'text-indigo-500', dot: 'bg-indigo-500' },
   onboarding: { bg: 'bg-orange-500/10', text: 'text-orange-500', dot: 'bg-orange-500' },
   live: { bg: 'bg-green-500/10', text: 'text-green-500', dot: 'bg-green-500' },
   development: { bg: 'bg-blue-500/10', text: 'text-blue-500', dot: 'bg-blue-500' },
