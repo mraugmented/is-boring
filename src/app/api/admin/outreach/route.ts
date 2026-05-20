@@ -46,8 +46,12 @@ function buildEmail(data: {
       <p style="margin:0 0 24px;">Take a look:</p>
     </div>
 
+    <a href="${previewUrl}" style="display:block;margin-bottom:24px;text-decoration:none;">
+      <img src="https://image.thum.io/get/width/1200/crop/900/noanimate/${previewUrl}" alt="Preview of your new website" style="width:100%;border-radius:12px;border:1px solid rgba(255,255,255,0.1);" />
+    </a>
+
     <a href="${previewUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px;">
-      View Your New Site
+      View Live Site
     </a>
 
     <div style="color:rgba(255,255,255,0.4);font-size:14px;line-height:1.7;margin-top:24px;">
