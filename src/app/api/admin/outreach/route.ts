@@ -19,9 +19,8 @@ function buildEmail(data: {
 }) {
   const { contactName, companyName, previewUrl, customMessage } = data;
   const firstName = contactName.split(' ')[0];
-  const portalUrl = 'https://is-boring.com/portal/login';
 
-  const defaultMessage = `I came across ${companyName} and thought your online presence could be doing a lot more for you. So instead of just telling you — I built something.`;
+  const defaultMessage = `I came across ${companyName} and noticed you don't have a website yet — so instead of just reaching out, I went ahead and built one for you.`;
 
   const html = `
 <!DOCTYPE html>
@@ -52,10 +51,9 @@ function buildEmail(data: {
     </a>
 
     <div style="color:rgba(255,255,255,0.4);font-size:14px;line-height:1.7;margin-top:24px;">
-      <p style="margin:0 0 16px;">If you like what you see, we can get this live on your domain in no time. We handle everything — hosting, updates, the boring stuff — so you can focus on growing ${companyName}.</p>
+      <p style="margin:0 0 16px;">No strings attached — just wanted to show you what's possible. If you like what you see, I'd love to chat about getting this live for ${companyName}.</p>
 
-      <p style="margin:0 0 8px;">Once you're ready, you'll get your own client portal to track everything:</p>
-      <a href="${portalUrl}" style="color:#a78bfa;text-decoration:none;font-size:13px;">${portalUrl}</a>
+      <p style="margin:0;">Just reply to this email and we'll go from there.</p>
     </div>
 
     <div style="margin-top:40px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.06);">
@@ -73,9 +71,9 @@ ${customMessage || defaultMessage}
 
 Take a look: ${previewUrl}
 
-If you like what you see, we can get this live on your domain in no time. We handle everything — hosting, updates, the boring stuff — so you can focus on growing ${companyName}.
+No strings attached — just wanted to show you what's possible. If you like what you see, I'd love to chat about getting this live for ${companyName}.
 
-Once you're ready, you'll get your own client portal: ${portalUrl}
+Just reply to this email and we'll go from there.
 
 Justyn
 is-boring — we do the boring so you can keep on growing`;
