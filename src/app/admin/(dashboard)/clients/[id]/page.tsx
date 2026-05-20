@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import StatusBadge from '@/components/admin/StatusBadge';
 import StatsCard from '@/components/admin/StatsCard';
-import type { Client, ClientSite, Request, Message } from '@/types/database';
+import type { Client, ClientSite, Request, Message, PipelineStage } from '@/types/database';
+import { PIPELINE_STAGES } from '@/types/database';
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,7 +37,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
   // Edit state
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ status: '', plan: '', notes: '' });
+  const [editForm, setEditForm] = useState({ status: '', plan: '', notes: '', monthly_rate_dollars: '', payment_status: '' });
   const [saving, setSaving] = useState(false);
 
   // Add site form
@@ -73,6 +74,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         status: clientRes.data.status,
         plan: clientRes.data.plan,
         notes: clientRes.data.notes || '',
+        monthly_rate_dollars: clientRes.data.monthly_rate ? String(clientRes.data.monthly_rate / 100) : '',
+        payment_status: clientRes.data.payment_status || 'none',
       });
     }
     setSites((sitesRes.data as ClientSite[]) || []);
@@ -84,11 +87,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   async function handleSaveEdit() {
     if (!client) return;
     setSaving(true);
-    await supabase.from('clients').update({
+
+    const statusChanged = editForm.status !== client.status;
+    const monthlyRateCents = editForm.monthly_rate_dollars ? Math.round(parseFloat(editForm.monthly_rate_dollars) * 100) : 0;
+
+    const updateData: Record<string, unknown> = {
       status: editForm.status,
       plan: editForm.plan,
       notes: editForm.notes || null,
-    }).eq('id', client.id);
+      monthly_rate: monthlyRateCents,
+      payment_status: editForm.payment_status,
+    };
+
+    if (statusChanged) {
+      updateData.pipeline_stage_changed_at = new Date().toISOString();
+    }
+
+    await supabase.from('clients').update(updateData).eq('id', client.id);
+
+    if (statusChanged) {
+      await supabase.from('activity_log').insert({
+        client_id: client.id,
+        actor: 'admin',
+        action: 'stage_changed',
+        details: `Status changed from ${client.status.replace(/_/g, ' ')} to ${editForm.status.replace(/_/g, ' ')}`,
+        metadata: { from: client.status, to: editForm.status },
+      });
+    }
+
     setEditing(false);
     setSaving(false);
     fetchAll();
@@ -205,6 +231,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             {client.contact_name && `${client.contact_name} · `}{client.contact_email || 'No email'}
             {client.phone && ` · ${client.phone}`}
           </p>
+          <div className="flex items-center gap-2 mt-1">
+            {client.monthly_rate > 0 && (
+              <span className="text-sm font-medium text-[var(--text-primary)]">
+                ${(client.monthly_rate / 100).toLocaleString()}/mo
+              </span>
+            )}
+            {client.payment_status && client.payment_status !== 'none' && (
+              <StatusBadge status={client.payment_status} />
+            )}
+          </div>
           <p className="text-xs text-[var(--text-muted)] mt-1">
             Created {formatDate(client.created_at)}
             {client.outreach_sent_at && ` · Outreach sent ${timeAgo(client.outreach_sent_at)}`}
@@ -255,7 +291,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       {editing && (
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-5 space-y-4">
           <h3 className="text-sm font-medium text-[var(--text-primary)]">Edit Client</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
               <select
@@ -263,10 +299,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                 className="w-full px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
               >
-                <option value="prospect">Prospect</option>
-                <option value="onboarding">Onboarding</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                {PIPELINE_STAGES.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -279,6 +314,32 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <option value="starter">Starter</option>
                 <option value="growth">Growth</option>
                 <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Monthly Rate ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editForm.monthly_rate_dollars}
+                onChange={(e) => setEditForm({ ...editForm, monthly_rate_dollars: e.target.value })}
+                placeholder="500"
+                className="w-full px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Payment Status</label>
+              <select
+                value={editForm.payment_status}
+                onChange={(e) => setEditForm({ ...editForm, payment_status: e.target.value })}
+                className="w-full px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+              >
+                <option value="none">None</option>
+                <option value="trial">Trial</option>
+                <option value="paid">Paid</option>
+                <option value="overdue">Overdue</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
           </div>
