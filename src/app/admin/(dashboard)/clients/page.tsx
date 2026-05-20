@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import DataTable, { type Column } from '@/components/admin/DataTable';
 import StatusBadge from '@/components/admin/StatusBadge';
@@ -11,6 +12,7 @@ interface ClientWithSiteCount extends Client {
 }
 
 export default function AdminClientsPage() {
+  const router = useRouter();
   const [clients, setClients] = useState<ClientWithSiteCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -207,6 +209,7 @@ export default function AdminClientsPage() {
         loading={loading}
         emptyMessage="No clients found"
         getRowKey={(c) => c.id}
+        onRowClick={(c) => router.push(`/admin/clients/${c.id}`)}
       />
     </div>
   );
