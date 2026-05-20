@@ -51,6 +51,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
 
+  // Analytics state
+  const [analyticsSiteId, setAnalyticsSiteId] = useState('');
+  const [analyticsData, setAnalyticsData] = useState<{
+    total_views: number;
+    unique_visitors: number;
+    top_pages: { path: string; views: number }[];
+  } | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
   // Convert prospect
   const [converting, setConverting] = useState(false);
   const [convertError, setConvertError] = useState('');
@@ -82,6 +91,43 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setRequests((requestsRes.data as Request[]) || []);
     setMessages((messagesRes.data as Message[]) || []);
     setLoading(false);
+  }
+
+  async function fetchAnalytics(siteId: string) {
+    if (!siteId) {
+      setAnalyticsData(null);
+      return;
+    }
+    setAnalyticsLoading(true);
+    const since = new Date();
+    since.setDate(since.getDate() - 7);
+
+    const { data: events } = await supabase
+      .from('client_analytics')
+      .select('*')
+      .eq('site_id', siteId)
+      .gte('created_at', since.toISOString());
+
+    const rows = events ?? [];
+    const pageViews = rows.filter((r: { event_type: string }) => r.event_type === 'page_view');
+    const sessionIds = new Set(rows.map((r: { session_id: string }) => r.session_id));
+
+    const pageCounts = new Map<string, number>();
+    for (const pv of pageViews) {
+      const path = (pv as { event_data?: { path?: string } }).event_data?.path || '/';
+      pageCounts.set(path, (pageCounts.get(path) || 0) + 1);
+    }
+    const topPages = Array.from(pageCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([path, views]) => ({ path, views }));
+
+    setAnalyticsData({
+      total_views: pageViews.length,
+      unique_visitors: sessionIds.size,
+      top_pages: topPages,
+    });
+    setAnalyticsLoading(false);
   }
 
   async function handleSaveEdit() {
@@ -469,6 +515,70 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* Site Analytics */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">Site Analytics</h2>
+        {sites.length === 0 ? (
+          <div className="rounded-xl border border-[var(--border-subtle)] p-6 text-center text-[var(--text-tertiary)] text-sm">
+            No sites to show analytics for
+          </div>
+        ) : (
+          <>
+            <select
+              value={analyticsSiteId}
+              onChange={(e) => {
+                setAnalyticsSiteId(e.target.value);
+                fetchAnalytics(e.target.value);
+              }}
+              className="px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)]"
+            >
+              <option value="">Select a site...</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>{s.site_name} {s.domain ? `(${s.domain})` : ''}</option>
+              ))}
+            </select>
+
+            {analyticsLoading && (
+              <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <div className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                Loading...
+              </div>
+            )}
+
+            {analyticsData && !analyticsLoading && (
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 space-y-3">
+                <div className="flex gap-6">
+                  <div>
+                    <p className="text-xs text-[var(--text-secondary)]">Views (7d)</p>
+                    <p className="text-lg font-semibold text-[var(--text-primary)]">{analyticsData.total_views.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[var(--text-secondary)]">Visitors (7d)</p>
+                    <p className="text-lg font-semibold text-[var(--text-primary)]">{analyticsData.unique_visitors.toLocaleString()}</p>
+                  </div>
+                </div>
+                {analyticsData.top_pages.length > 0 && (
+                  <div>
+                    <p className="text-xs text-[var(--text-secondary)] mb-1">Top Pages</p>
+                    <div className="space-y-1">
+                      {analyticsData.top_pages.map((p) => (
+                        <div key={p.path} className="flex items-center justify-between text-sm">
+                          <span className="text-[var(--text-primary)] truncate mr-3">{p.path}</span>
+                          <span className="text-[var(--text-secondary)] whitespace-nowrap">{p.views} views</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analyticsData.total_views === 0 && (
+                  <p className="text-xs text-[var(--text-muted)]">No analytics data for the last 7 days.</p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 

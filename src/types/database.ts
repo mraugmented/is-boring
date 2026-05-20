@@ -40,8 +40,25 @@ export interface Client {
   last_payment_date: string | null;
   pipeline_stage_changed_at: string | null;
   lost_reason: string | null;
+  agreement_signed_at: string | null;
+  monthly_change_limit: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ServiceAgreement {
+  id: string;
+  client_id: string;
+  signer_name: string;
+  signer_email: string;
+  plan: string;
+  monthly_rate: number;
+  monthly_change_limit: number;
+  signed_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  agreement_version: string;
+  created_at: string;
 }
 
 export interface ClientSite {

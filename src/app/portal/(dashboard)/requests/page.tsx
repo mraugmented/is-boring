@@ -29,12 +29,23 @@ export default function PortalRequestsPage() {
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formPriority, setFormPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
+  const [requestsThisMonth, setRequestsThisMonth] = useState(0);
+
+  const monthlyLimit = client.monthly_change_limit ?? 5;
+  const remaining = Math.max(monthlyLimit - requestsThisMonth, 0);
+  const atLimit = remaining === 0;
+
+  // Next month's first day for reset message
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextMonthStr = nextMonth.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
   useEffect(() => {
     async function fetchData() {
       const supabase = createSupabaseBrowserClient();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      const [reqRes, sitesRes] = await Promise.all([
+      const [reqRes, sitesRes, countRes] = await Promise.all([
         supabase
           .from('requests')
           .select('*')
@@ -45,14 +56,21 @@ export default function PortalRequestsPage() {
           .select('*')
           .eq('client_id', client.id)
           .order('site_name'),
+        supabase
+          .from('requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('client_id', client.id)
+          .gte('created_at', startOfMonth),
       ]);
 
       setRequests((reqRes.data as Request[]) ?? []);
       setSites((sitesRes.data as ClientSite[]) ?? []);
+      setRequestsThisMonth(countRes.count ?? 0);
       setLoading(false);
     }
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client.id]);
 
   const filteredRequests =
@@ -102,6 +120,29 @@ export default function PortalRequestsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Monthly usage indicator */}
+      <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-[var(--text-secondary)]">
+            {remaining} of {monthlyLimit} changes remaining this month
+          </span>
+          {atLimit && (
+            <span className="text-xs text-red-400">
+              Resets on {nextMonthStr}
+            </span>
+          )}
+        </div>
+        <div className="h-1.5 rounded-full bg-[var(--bg-surface)] overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${Math.min((requestsThisMonth / monthlyLimit) * 100, 100)}%`,
+              backgroundColor: atLimit ? '#ef4444' : 'var(--accent)',
+            }}
+          />
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-[var(--text-primary)]">Requests</h1>
@@ -109,12 +150,18 @@ export default function PortalRequestsPage() {
             Submit and track change requests.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors cursor-pointer"
-        >
-          {showForm ? 'Cancel' : 'New Request'}
-        </button>
+        {atLimit ? (
+          <span className="px-4 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] text-[var(--text-muted)] text-sm font-medium cursor-not-allowed">
+            Limit Reached
+          </span>
+        ) : (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="px-4 py-2 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors cursor-pointer"
+          >
+            {showForm ? 'Cancel' : 'New Request'}
+          </button>
+        )}
       </div>
 
       {/* Inline form */}

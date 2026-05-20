@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type { Client } from '@/types/database';
 import { PortalProvider } from './PortalContext';
 import PortalSidebar from './PortalSidebar';
@@ -14,6 +16,9 @@ export default function PortalShell({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
+  const showAgreementBanner =
+    !client.agreement_signed_at && pathname !== '/portal/agreement';
 
   return (
     <PortalProvider client={client}>
@@ -51,6 +56,19 @@ export default function PortalShell({
 
       {/* Main content */}
       <main className="pt-14 lg:pl-56 min-h-screen bg-[var(--bg-primary)]">
+        {showAgreementBanner && (
+          <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-3 flex items-center justify-between">
+            <p className="text-sm text-amber-400">
+              Please review and sign your service agreement to get started.
+            </p>
+            <Link
+              href="/portal/agreement"
+              className="text-sm font-medium text-amber-400 hover:text-amber-300 underline shrink-0 ml-4"
+            >
+              Review Agreement
+            </Link>
+          </div>
+        )}
         <div className="p-6 max-w-5xl mx-auto">
           {children}
         </div>
