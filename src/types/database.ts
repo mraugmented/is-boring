@@ -142,6 +142,18 @@ export interface Contact {
   created_at: string;
 }
 
+export interface SiteLead {
+  id: string;
+  site_id: string;
+  name: string | null;
+  email: string;
+  phone: string | null;
+  business_name: string | null;
+  message: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
 // Plan pricing in cents
 export const PLAN_PRICING: Record<string, number> = {
   starter: 50000,   // $500/mo

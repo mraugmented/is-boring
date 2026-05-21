@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import StatusBadge from '@/components/admin/StatusBadge';
 import StatsCard from '@/components/admin/StatsCard';
-import type { Client, ClientSite, Request, Message, ClientFile, PipelineStage } from '@/types/database';
+import type { Client, ClientSite, Request, Message, ClientFile, PipelineStage, SiteLead } from '@/types/database';
 import { PIPELINE_STAGES } from '@/types/database';
 
 function timeAgo(dateStr: string) {
@@ -35,6 +35,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [messages, setMessages] = useState<Message[]>([]);
   const [clientFiles, setClientFiles] = useState<ClientFile[]>([]);
   const [fileSignedUrls, setFileSignedUrls] = useState<Record<string, string>>({});
+  const [leads, setLeads] = useState<SiteLead[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Edit state
@@ -95,6 +96,20 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setMessages((messagesRes.data as Message[]) || []);
     const fetchedFiles = (filesRes.data as ClientFile[]) || [];
     setClientFiles(fetchedFiles);
+
+    // Fetch leads for all client sites
+    const siteIds = ((sitesRes.data as ClientSite[]) || []).map((s) => s.id);
+    if (siteIds.length > 0) {
+      const { data: leadsData } = await supabase
+        .from('site_leads')
+        .select('*')
+        .in('site_id', siteIds)
+        .order('created_at', { ascending: false });
+      setLeads((leadsData as SiteLead[]) || []);
+    } else {
+      setLeads([]);
+    }
+
     setLoading(false);
 
     // Generate signed URLs for image files
@@ -530,6 +545,66 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                     <option value="maintenance">Maintenance</option>
                     <option value="offline">Offline</option>
                   </select>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Leads */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-medium text-[var(--text-primary)]">Leads</h2>
+          <span className="text-sm text-[var(--text-secondary)]">{leads.length} total</span>
+        </div>
+        {leads.length === 0 ? (
+          <div className="rounded-xl border border-[var(--border-subtle)] p-8 text-center text-[var(--text-tertiary)] text-sm">
+            No leads yet
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {leads.map((lead) => (
+              <div key={lead.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-[var(--text-primary)]">
+                        {lead.name || 'No name'}
+                      </h3>
+                      {lead.is_read ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--text-muted)]">Read</span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-soft)] text-[var(--accent)]">Unread</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <a href={`mailto:${lead.email}`} className="text-[var(--accent)] hover:underline">{lead.email}</a>
+                      {lead.phone && (
+                        <a href={`tel:${lead.phone}`} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{lead.phone}</a>
+                      )}
+                      {lead.business_name && (
+                        <span className="text-[var(--text-tertiary)]">{lead.business_name}</span>
+                      )}
+                    </div>
+                    {lead.message && (
+                      <p className="text-sm text-[var(--text-secondary)] mt-1">{lead.message}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4 shrink-0">
+                    <span className="text-xs text-[var(--text-muted)]">{timeAgo(lead.created_at)}</span>
+                    {!lead.is_read && (
+                      <button
+                        onClick={async () => {
+                          await supabase.from('site_leads').update({ is_read: true }).eq('id', lead.id);
+                          fetchAll();
+                        }}
+                        className="text-xs text-[var(--accent)] hover:underline cursor-pointer whitespace-nowrap"
+                      >
+                        Mark as Read
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

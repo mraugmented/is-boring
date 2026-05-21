@@ -66,4 +66,5 @@ export const RATE_LIMITS = {
   standard: { limit: 20, windowSeconds: 60 },
   relaxed: { limit: 60, windowSeconds: 60 },
   auth: { limit: 10, windowSeconds: 300 },
+  leads: { limit: 10, windowSeconds: 60 },
 } as const;
