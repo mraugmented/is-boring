@@ -25,14 +25,15 @@ export default function PortalLeadsPage() {
     async function fetchLeads() {
       const supabase = createSupabaseBrowserClient();
 
-      // Get client's sites first
+      // Get client's sites (both id and slug for matching)
       const { data: sitesData } = await supabase
         .from('client_sites')
-        .select('id')
+        .select('id, slug')
         .eq('client_id', client.id);
 
-      const sites = (sitesData as ClientSite[]) ?? [];
-      const siteIds = sites.map((s) => s.id);
+      const sites = (sitesData as Pick<ClientSite, 'id' | 'slug'>[]) ?? [];
+      // Match leads by both UUID id and slug
+      const siteIds = sites.flatMap((s) => [s.id, s.slug].filter(Boolean) as string[]);
 
       if (siteIds.length === 0) {
         setLeads([]);

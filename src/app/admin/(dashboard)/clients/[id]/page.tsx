@@ -97,13 +97,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     const fetchedFiles = (filesRes.data as ClientFile[]) || [];
     setClientFiles(fetchedFiles);
 
-    // Fetch leads for all client sites
-    const siteIds = ((sitesRes.data as ClientSite[]) || []).map((s) => s.id);
-    if (siteIds.length > 0) {
+    // Fetch leads for all client sites (match by both UUID id and slug)
+    const fetchedSites = (sitesRes.data as ClientSite[]) || [];
+    const siteMatchIds = fetchedSites.flatMap((s) => [s.id, (s as ClientSite & { slug?: string }).slug].filter(Boolean) as string[]);
+    if (siteMatchIds.length > 0) {
       const { data: leadsData } = await supabase
         .from('site_leads')
         .select('*')
-        .in('site_id', siteIds)
+        .in('site_id', siteMatchIds)
         .order('created_at', { ascending: false });
       setLeads((leadsData as SiteLead[]) || []);
     } else {

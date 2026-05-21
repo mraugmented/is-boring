@@ -65,6 +65,7 @@ export interface ClientSite {
   id: string;
   client_id: string;
   site_name: string;
+  slug: string | null;
   domain: string | null;
   vercel_project_id: string | null;
   template: string | null;
