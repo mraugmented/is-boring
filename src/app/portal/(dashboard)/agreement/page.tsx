@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { usePortal } from '@/components/portal/PortalContext';
 import type { ServiceAgreement } from '@/types/database';
 
@@ -8,7 +9,7 @@ const agreementSections = [
   {
     title: '1. Services Provided',
     content:
-      'is-boring LLC will manage, host, and maintain Client\'s website including hosting, security updates, and content changes as specified in the selected plan.',
+      'isboringLLC will manage, host, and maintain Client\'s website including hosting, security updates, and content changes as specified in the selected plan.',
   },
   {
     title: '2. Monthly Fee',
@@ -23,12 +24,12 @@ const agreementSections = [
   {
     title: '4. Limitation of Liability',
     content:
-      'is-boring LLC provides website management services on an "as-is" basis. is-boring LLC is not liable for any damages arising from website downtime, data loss, third-party service failures, or content published by the Client. Maximum liability is limited to the amount paid in the current billing period.',
+      'isboringLLC provides website management services on an "as-is" basis. isboringLLC is not liable for any damages arising from website downtime, data loss, third-party service failures, or content published by the Client. Maximum liability is limited to the amount paid in the current billing period.',
   },
   {
     title: '5. Intellectual Property',
     content:
-      'Client retains ownership of all original content, logos, and brand assets. is-boring LLC retains ownership of code, templates, and technical infrastructure. Upon termination, Client receives all content and assets but not proprietary code/templates.',
+      'Client retains ownership of all original content, logos, and brand assets. isboringLLC retains ownership of code, templates, and technical infrastructure. Upon termination, Client receives all content and assets but not proprietary code/templates.',
   },
   {
     title: '6. Cancellation',
@@ -38,12 +39,33 @@ const agreementSections = [
   {
     title: '7. Data & Privacy',
     content:
-      'is-boring LLC may collect website analytics data to provide performance reports. Client data is never sold to third parties.',
+      'isboringLLC may collect website analytics data to provide performance reports. Client data is never sold to third parties.',
+  },
+  {
+    title: '8. Auto-Renewal',
+    content:
+      'This agreement renews automatically on a monthly basis. Either party may cancel with 30 days written notice as outlined in Section 6.',
+  },
+  {
+    title: '9. Acceptable Use',
+    content:
+      'Client agrees not to use the website for any unlawful purpose, to distribute malicious software, or to publish content that infringes on the intellectual property rights of others. isboringLLC reserves the right to suspend services if this policy is violated.',
+  },
+  {
+    title: '10. Dispute Resolution',
+    content:
+      'Any disputes arising from this agreement shall first be resolved through informal negotiation. If unresolved within 30 days, disputes shall be settled through binding arbitration in Los Angeles County, California.',
+  },
+  {
+    title: '11. Governing Law',
+    content:
+      'This agreement shall be governed by and construed in accordance with the laws of the State of California, without regard to conflict of law principles.',
   },
 ];
 
 export default function AgreementPage() {
   const { client } = usePortal();
+  const router = useRouter();
   const [agreement, setAgreement] = useState<ServiceAgreement | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +118,7 @@ export default function AgreementPage() {
       } else {
         const data = await res.json();
         setAgreement(data.agreement);
+        router.refresh();
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -141,7 +164,7 @@ export default function AgreementPage() {
       {/* Agreement text */}
       <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 space-y-6">
         <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-          Service Agreement — is-boring LLC
+          Service Agreement — isboringLLC
         </h2>
 
         {agreementSections.map((section) => (

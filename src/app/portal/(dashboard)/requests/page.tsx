@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { usePortal } from '@/components/portal/PortalContext';
 import StatusBadge from '@/components/admin/StatusBadge';
-import type { Request, ClientSite } from '@/types/database';
+import type { Request, ClientSite, Message } from '@/types/database';
 
 type FilterTab = 'all' | 'pending' | 'in_progress' | 'completed';
 
@@ -23,6 +23,11 @@ export default function PortalRequestsPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [requestMessages, setRequestMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
 
   // Form state
   const [formSiteId, setFormSiteId] = useState('');
@@ -108,6 +113,59 @@ export default function PortalRequestsPage() {
     }
 
     setSubmitting(false);
+  }
+
+  async function toggleRequest(requestId: string) {
+    if (selectedRequestId === requestId) {
+      setSelectedRequestId(null);
+      setRequestMessages([]);
+      setReplyContent('');
+      return;
+    }
+
+    setSelectedRequestId(requestId);
+    setLoadingMessages(true);
+    setReplyContent('');
+
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('request_id', requestId)
+      .order('created_at', { ascending: true });
+
+    setRequestMessages((data as Message[]) ?? []);
+    setLoadingMessages(false);
+  }
+
+  async function handleSendReply(e: React.FormEvent) {
+    e.preventDefault();
+    if (!replyContent.trim() || !selectedRequestId) return;
+
+    setSendingReply(true);
+    const supabase = createSupabaseBrowserClient();
+
+    const { data: userData } = await supabase.auth.getUser();
+    const senderId = userData.user?.id ?? '';
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        client_id: client.id,
+        request_id: selectedRequestId,
+        sender_id: senderId,
+        sender_role: 'client',
+        content: replyContent.trim(),
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      setRequestMessages((prev) => [...prev, data as Message]);
+      setReplyContent('');
+    }
+
+    setSendingReply(false);
   }
 
   if (loading) {
@@ -268,22 +326,137 @@ export default function PortalRequestsPage() {
             No requests found.
           </div>
         ) : (
-          filteredRequests.map((req) => (
-            <div key={req.id} className="px-4 py-3.5 flex items-center justify-between">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-[var(--text-primary)] truncate">
-                  {req.title}
-                </p>
-                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                  {new Date(req.created_at).toLocaleDateString()}
-                </p>
+          filteredRequests.map((req) => {
+            const isExpanded = selectedRequestId === req.id;
+            return (
+              <div key={req.id}>
+                <button
+                  type="button"
+                  onClick={() => toggleRequest(req.id)}
+                  className="w-full px-4 py-3.5 flex items-center justify-between text-left cursor-pointer hover:bg-[var(--bg-surface)] transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-[var(--text-primary)] truncate">
+                      {req.title}
+                    </p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                      {new Date(req.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4 shrink-0">
+                    <StatusBadge status={req.priority} />
+                    <StatusBadge status={req.status} />
+                    <svg
+                      className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-4 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+                    {/* Full description */}
+                    {req.description && (
+                      <div className="pt-3">
+                        <h4 className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-1">
+                          Description
+                        </h4>
+                        <p className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap">
+                          {req.description}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Status timeline */}
+                    <div className="pt-1">
+                      <h4 className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">
+                        Status
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        {['pending', 'in_progress', 'completed'].map((step, i) => {
+                          const stepOrder = { pending: 0, in_progress: 1, completed: 2 } as Record<string, number>;
+                          const currentOrder = stepOrder[req.status] ?? 0;
+                          const isReached = stepOrder[step] !== undefined && stepOrder[step] <= currentOrder;
+                          return (
+                            <div key={step} className="flex items-center gap-2">
+                              {i > 0 && (
+                                <div className={`w-8 h-0.5 ${isReached ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`} />
+                              )}
+                              <div className="flex items-center gap-1.5">
+                                <div className={`w-2.5 h-2.5 rounded-full ${isReached ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`} />
+                                <span className={`text-xs capitalize ${isReached ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
+                                  {step.replace('_', ' ')}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Messages */}
+                    <div className="pt-1">
+                      <h4 className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wide mb-2">
+                        Messages
+                      </h4>
+                      {loadingMessages ? (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : requestMessages.length === 0 ? (
+                        <p className="text-xs text-[var(--text-muted)] py-2">No messages yet.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                          {requestMessages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={`rounded-[var(--radius-sm)] px-3 py-2 text-sm ${
+                                msg.sender_role === 'client'
+                                  ? 'bg-[var(--accent)]/10 text-[var(--text-primary)] ml-6'
+                                  : 'bg-[var(--bg-elevated)] text-[var(--text-secondary)] mr-6'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="text-xs font-medium text-[var(--text-tertiary)]">
+                                  {msg.sender_role === 'client' ? 'You' : 'is-boring'}
+                                </span>
+                                <span className="text-xs text-[var(--text-muted)]">
+                                  {new Date(msg.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <p className="whitespace-pre-wrap">{msg.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply input */}
+                      <form onSubmit={handleSendReply} className="flex gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          placeholder="Type a reply..."
+                          className="flex-1 px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
+                        />
+                        <button
+                          type="submit"
+                          disabled={sendingReply || !replyContent.trim()}
+                          className="px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {sendingReply ? '...' : 'Send'}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-2 ml-4 shrink-0">
-                <StatusBadge status={req.priority} />
-                <StatusBadge status={req.status} />
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
