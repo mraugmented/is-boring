@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export default function ForgotPasswordPage() {
@@ -38,11 +39,8 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-8">
           <div className="text-center mb-8">
-            <Link
-              href="/"
-              className="text-lg font-semibold text-[var(--text-primary)] hover:text-[var(--accent)] transition-colors"
-            >
-              is-boring
+            <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+              <Image src="/logo.jpeg" alt="is-boring" width={120} height={40} className="h-8 w-auto invert mx-auto" />
             </Link>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               Reset your password

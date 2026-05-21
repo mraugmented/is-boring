@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export default function AdminLoginPage() {
@@ -41,8 +42,8 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-xl font-semibold text-[var(--text-primary)]">is-boring</h1>
-          <p className="text-sm text-[var(--text-tertiary)] mt-1">admin</p>
+          <Image src="/logo.jpeg" alt="is-boring" width={120} height={40} className="h-8 w-auto invert mx-auto" />
+          <p className="text-sm text-[var(--text-tertiary)] mt-2">admin</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

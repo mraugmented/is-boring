@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -118,8 +119,9 @@ export default function AdminLayoutClient({ counts, children }: AdminLayoutClien
     <div className="flex flex-col h-full">
       <div className="px-4 py-5 flex items-center justify-between border-b border-[var(--border-subtle)]">
         {!collapsed && (
-          <Link href="/admin" className="text-sm font-semibold text-[var(--text-primary)]">
-            is-boring <span className="text-[var(--text-muted)] font-normal">admin</span>
+          <Link href="/admin" className="flex items-center gap-2">
+            <Image src="/logo.jpeg" alt="is-boring" width={100} height={33} className="h-7 w-auto invert" />
+            <span className="text-[var(--text-muted)] text-sm font-normal">admin</span>
           </Link>
         )}
         <button
@@ -217,9 +219,10 @@ export default function AdminLayoutClient({ counts, children }: AdminLayoutClien
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            is-boring <span className="text-[var(--text-muted)] font-normal">admin</span>
-          </span>
+          <div className="flex items-center gap-2">
+            <Image src="/logo.jpeg" alt="is-boring" width={100} height={33} className="h-7 w-auto invert" />
+            <span className="text-[var(--text-muted)] text-sm font-normal">admin</span>
+          </div>
           <div className="w-8" />
         </div>
 

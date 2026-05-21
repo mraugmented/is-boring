@@ -42,9 +42,7 @@ function buildInviteEmail(data: {
   <div style="max-width:560px;margin:0 auto;padding:48px 24px;">
 
     <div style="margin-bottom:32px;">
-      <span style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6);font-family:monospace;">
-        is-boring<span style="color:#a78bfa;">.</span>
-      </span>
+      <img src="https://is-boring.com/logo.jpeg" alt="is-boring" height="36" style="height:36px;width:auto;" />
     </div>
 
     <div style="color:#ededed;font-size:15px;line-height:1.7;">

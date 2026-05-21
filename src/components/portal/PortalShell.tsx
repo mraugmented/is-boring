@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import type { Client } from '@/types/database';
 import { PortalProvider } from './PortalContext';
@@ -34,9 +35,7 @@ export default function PortalShell({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            is-boring
-          </span>
+          <Image src="/logo.jpeg" alt="is-boring" width={100} height={33} className="h-7 w-auto invert" />
         </div>
 
         {/* Center: company name */}
