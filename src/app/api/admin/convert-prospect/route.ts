@@ -12,12 +12,23 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 function buildInviteEmail(data: {
   contactName: string;
   companyName: string;
   portalUrl: string;
+  email: string;
+  password: string;
 }) {
-  const { contactName, companyName, portalUrl } = data;
+  const { contactName, companyName, portalUrl, email, password } = data;
   const firstName = contactName.split(' ')[0];
 
   const html = `
@@ -40,12 +51,16 @@ function buildInviteEmail(data: {
       <p style="margin:0 0 16px;">Hey ${firstName},</p>
 
       <p style="margin:0 0 16px;">Welcome aboard! Your client portal is ready. From here you can track your site, submit change requests, and message us directly.</p>
+    </div>
 
-      <p style="margin:0 0 24px;">Click below to log in — we'll send you a magic link, no password needed:</p>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;margin:24px 0;">
+      <p style="margin:0 0 12px;color:rgba(255,255,255,0.5);font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">Your Login</p>
+      <p style="margin:0 0 8px;color:#ededed;font-size:14px;"><strong>Email:</strong> ${email}</p>
+      <p style="margin:0;color:#ededed;font-size:14px;"><strong>Password:</strong> <code style="background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:4px;font-family:monospace;">${password}</code></p>
     </div>
 
     <a href="${portalUrl}" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px;">
-      Open Your Portal
+      Sign In to Your Portal
     </a>
 
     <div style="color:rgba(255,255,255,0.4);font-size:14px;line-height:1.7;margin-top:24px;">
@@ -69,10 +84,13 @@ function buildInviteEmail(data: {
 
   const text = `Hey ${firstName},
 
-Welcome aboard! Your client portal is ready. From here you can track your site, submit change requests, and message us directly.
+Welcome aboard! Your client portal is ready.
 
-Log in here (magic link, no password needed):
-${portalUrl}
+Your Login:
+Email: ${email}
+Password: ${password}
+
+Sign in here: ${portalUrl}
 
 In your portal you can:
 - View your site status and deployment info
@@ -100,7 +118,6 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createSupabaseServerClient();
 
-  // Fetch client
   const { data: client, error: clientError } = await supabase
     .from('clients')
     .select('*')
@@ -115,7 +132,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Client has no email address' }, { status: 400 });
   }
 
-  // Create auth user via admin API (service role)
   const serviceClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!,
@@ -123,6 +139,7 @@ export async function POST(request: NextRequest) {
   );
 
   let userId: string;
+  const tempPassword = generatePassword();
 
   // Check if user already exists
   const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
@@ -132,9 +149,11 @@ export async function POST(request: NextRequest) {
 
   if (existingUser) {
     userId = existingUser.id;
+    // Reset their password to the new temp one
+    await serviceClient.auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    });
   } else {
-    // Create new user with a random password (they'll use magic link)
-    const tempPassword = crypto.randomUUID() + crypto.randomUUID();
     const { data: newUser, error: createError } = await serviceClient.auth.admin.createUser({
       email: client.contact_email,
       password: tempPassword,
@@ -170,18 +189,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Update profile role to client (should already be set by trigger, but be safe)
   await serviceClient
     .from('profiles')
     .update({ role: 'client' })
     .eq('id', userId);
 
-  // Send invite email
+  // Send invite email with credentials
   const portalUrl = 'https://is-boring.com/portal/login';
   const { html, text } = buildInviteEmail({
     contactName: client.contact_name || client.company_name,
     companyName: client.company_name,
     portalUrl,
+    email: client.contact_email,
+    password: tempPassword,
   });
 
   try {
@@ -195,13 +215,14 @@ export async function POST(request: NextRequest) {
   } catch (emailError) {
     console.error('Invite email failed:', emailError);
     return NextResponse.json({
-      message: 'Client activated but invite email failed to send. They can still log in at the portal.',
+      message: `Client activated but invite email failed. Their temp password is: ${tempPassword}`,
       emailSent: false,
+      tempPassword,
     });
   }
 
   return NextResponse.json({
-    message: `${client.company_name} is now active! Portal invite sent to ${client.contact_email}.`,
+    message: `${client.company_name} is now active! Login credentials sent to ${client.contact_email}.`,
     emailSent: true,
   });
 }

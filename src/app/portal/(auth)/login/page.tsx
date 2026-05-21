@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export default function PortalLoginPage() {
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -17,18 +19,22 @@ export default function PortalLoginPage() {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error: authError } = await supabase.auth.signInWithOtp({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email,
-        options: {
-          emailRedirectTo: window.location.origin + '/auth/callback?next=/portal',
-        },
+        password,
       });
 
       if (authError) {
-        setError(authError.message);
-      } else {
-        setSent(true);
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password.');
+        } else {
+          setError(authError.message);
+        }
+        return;
       }
+
+      router.push('/portal');
+      router.refresh();
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -52,59 +58,55 @@ export default function PortalLoginPage() {
             </p>
           </div>
 
-          {sent ? (
-            <div className="text-center space-y-4">
-              <div className="p-3 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
-                <p className="text-sm text-[var(--text-primary)]">
-                  Check your email
-                </p>
-                <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                  We sent a magic link to <span className="text-[var(--text-secondary)]">{email}</span>
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setSent(false);
-                  setEmail('');
-                }}
-                className="text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors cursor-pointer"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm text-[var(--text-secondary)] mb-1.5"
               >
-                Try a different email
-              </button>
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="w-full px-3 py-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm text-[var(--text-secondary)] mb-1.5"
-                >
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="w-full px-3 py-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-                />
-              </div>
 
-              {error && (
-                <p className="text-sm text-red-400">{error}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm text-[var(--text-secondary)] mb-1.5"
               >
-                {loading ? 'Sending...' : 'Send magic link'}
-              </button>
-            </form>
-          )}
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3 py-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-red-400">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </button>
+          </form>
         </div>
 
         <div className="mt-6 text-center">
