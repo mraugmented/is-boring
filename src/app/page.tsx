@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import SceneLoader from "@/components/SceneLoader";
 import ContactForm from "@/components/ContactForm";
 
@@ -12,7 +11,9 @@ export default function Home() {
         {/* Nav */}
         <nav className="flex items-center justify-between px-6 py-6 sm:px-12">
           <div className="animate-fade-up">
-            <Image src="/logo.jpeg" alt="is-boring" width={120} height={40} className="h-8 w-auto invert" />
+            <span className="text-sm font-medium tracking-tight text-white/60 font-mono">
+              is-boring<span className="text-purple-400/80">.</span>
+            </span>
           </div>
           <Link
             href="/portal/login"
@@ -37,8 +38,7 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <footer className="px-6 sm:px-12 py-8 flex flex-col items-center justify-center gap-2">
-          <Image src="/logo.jpeg" alt="is-boring" width={80} height={27} className="h-5 w-auto invert opacity-15" />
+        <footer className="px-6 sm:px-12 py-8 flex items-center justify-center">
           <span className="text-xs text-white/15 font-mono">
             &copy; 2026 is-boring
           </span>
