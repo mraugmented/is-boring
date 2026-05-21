@@ -121,6 +121,18 @@ export interface SiteAnalytics {
   created_at: string;
 }
 
+export interface ClientFile {
+  id: string;
+  client_id: string;
+  uploaded_by: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  storage_path: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface Contact {
   id: string;
   name: string | null;

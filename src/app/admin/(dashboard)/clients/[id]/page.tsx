@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import StatusBadge from '@/components/admin/StatusBadge';
 import StatsCard from '@/components/admin/StatsCard';
-import type { Client, ClientSite, Request, Message, PipelineStage } from '@/types/database';
+import type { Client, ClientSite, Request, Message, ClientFile, PipelineStage } from '@/types/database';
 import { PIPELINE_STAGES } from '@/types/database';
 
 function timeAgo(dateStr: string) {
@@ -33,6 +33,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [sites, setSites] = useState<ClientSite[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [clientFiles, setClientFiles] = useState<ClientFile[]>([]);
+  const [fileSignedUrls, setFileSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   // Edit state
@@ -70,11 +72,12 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   async function fetchAll() {
-    const [clientRes, sitesRes, requestsRes, messagesRes] = await Promise.all([
+    const [clientRes, sitesRes, requestsRes, messagesRes, filesRes] = await Promise.all([
       supabase.from('clients').select('*').eq('id', id).single(),
       supabase.from('client_sites').select('*').eq('client_id', id).order('created_at', { ascending: false }),
       supabase.from('requests').select('*').eq('client_id', id).order('created_at', { ascending: false }),
       supabase.from('messages').select('*').eq('client_id', id).order('created_at', { ascending: true }),
+      supabase.from('client_files').select('*').eq('client_id', id).order('created_at', { ascending: false }),
     ]);
 
     if (clientRes.data) {
@@ -90,7 +93,23 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     setSites((sitesRes.data as ClientSite[]) || []);
     setRequests((requestsRes.data as Request[]) || []);
     setMessages((messagesRes.data as Message[]) || []);
+    const fetchedFiles = (filesRes.data as ClientFile[]) || [];
+    setClientFiles(fetchedFiles);
     setLoading(false);
+
+    // Generate signed URLs for image files
+    const urls: Record<string, string> = {};
+    for (const f of fetchedFiles) {
+      if (f.file_type.startsWith('image/')) {
+        const { data: urlData } = await supabase.storage
+          .from('client-files')
+          .createSignedUrl(f.storage_path, 3600);
+        if (urlData?.signedUrl) {
+          urls[f.id] = urlData.signedUrl;
+        }
+      }
+    }
+    setFileSignedUrls(urls);
   }
 
   async function fetchAnalytics(siteId: string) {
@@ -658,6 +677,81 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Files */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-medium text-[var(--text-primary)]">Files</h2>
+        {clientFiles.length === 0 ? (
+          <div className="rounded-xl border border-[var(--border-subtle)] p-8 text-center text-[var(--text-tertiary)] text-sm">
+            No files uploaded by this client
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {clientFiles.map((file) => (
+              <div
+                key={file.id}
+                className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] overflow-hidden hover:border-[var(--border-default)] transition-all group"
+              >
+                {file.file_type.startsWith('image/') ? (
+                  <a
+                    href={fileSignedUrls[file.id] || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block aspect-square bg-[var(--bg-muted)] overflow-hidden cursor-pointer"
+                  >
+                    {fileSignedUrls[file.id] ? (
+                      <img
+                        src={fileSignedUrls[file.id]}
+                        alt={file.file_name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </a>
+                ) : (
+                  <div className="aspect-square bg-[var(--bg-muted)] flex items-center justify-center">
+                    <svg className="w-12 h-12 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                )}
+                <div className="p-3 space-y-1">
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate" title={file.file_name}>
+                    {file.file_name}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {file.file_size < 1024 * 1024
+                      ? `${(file.file_size / 1024).toFixed(1)} KB`
+                      : `${(file.file_size / (1024 * 1024)).toFixed(1)} MB`}
+                    {' '}&middot; {new Date(file.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                  {file.notes && (
+                    <p className="text-xs text-[var(--text-tertiary)] truncate" title={file.notes}>
+                      {file.notes}
+                    </p>
+                  )}
+                  <button
+                    onClick={async () => {
+                      const { data } = await supabase.storage
+                        .from('client-files')
+                        .createSignedUrl(file.storage_path, 3600);
+                      if (data?.signedUrl) {
+                        window.open(data.signedUrl, '_blank');
+                      }
+                    }}
+                    className="text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors mt-1 cursor-pointer"
+                  >
+                    Download
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
