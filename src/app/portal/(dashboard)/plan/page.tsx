@@ -5,14 +5,16 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { usePortal } from '@/components/portal/PortalContext';
 import StatusBadge from '@/components/admin/StatusBadge';
 
-const includedFeatures = [
-  'Website hosting & maintenance',
-  'Up to 5 changes per month',
-  'Website analytics & tracking',
-  'SSL certificate',
-  'Security updates',
-  'Email support',
-];
+function getIncludedFeatures(changeLimit: number) {
+  return [
+    'Website hosting & maintenance',
+    `Up to ${changeLimit} changes per month`,
+    'Website analytics & tracking',
+    'SSL certificate',
+    'Security updates',
+    'Email support',
+  ];
+}
 
 export default function PlanPage() {
   const { client } = usePortal();
@@ -70,7 +72,7 @@ export default function PlanPage() {
             </p>
           </div>
           <span className="text-2xl font-semibold text-[var(--text-primary)]">
-            $150<span className="text-sm font-normal text-[var(--text-tertiary)]">/mo</span>
+            ${(client.monthly_rate / 100).toLocaleString()}<span className="text-sm font-normal text-[var(--text-tertiary)]">/mo</span>
           </span>
         </div>
 
@@ -80,7 +82,7 @@ export default function PlanPage() {
             What&apos;s included
           </h3>
           <ul className="space-y-2">
-            {includedFeatures.map((feature) => (
+            {getIncludedFeatures(monthlyLimit).map((feature) => (
               <li key={feature} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)]">
                 <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

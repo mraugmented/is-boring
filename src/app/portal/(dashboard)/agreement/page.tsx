@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { usePortal } from '@/components/portal/PortalContext';
 import type { ServiceAgreement } from '@/types/database';
 
-const agreementSections = [
+function getAgreementSections(plan: string, monthlyRate: number, changeLimit: number) {
+  const formattedRate = (monthlyRate / 100).toLocaleString();
+  return [
   {
     title: '1. Services Provided',
     content:
@@ -14,12 +16,12 @@ const agreementSections = [
   {
     title: '2. Monthly Fee',
     content:
-      'Client agrees to pay $150/month for the Starter plan. Payment is due on the 1st of each month.',
+      `Client agrees to pay $${formattedRate}/month for the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan. Payment is due on the 1st of each month.`,
   },
   {
     title: '3. Change Requests',
     content:
-      'Plan includes up to 5 website changes per calendar month. Changes include text updates, image swaps, layout adjustments, and minor feature additions. Major redesigns, new pages, and custom features are outside scope and quoted separately.',
+      `Plan includes up to ${changeLimit} website changes per calendar month. Changes include text updates, image swaps, layout adjustments, and minor feature additions. Major redesigns, new pages, and custom features are outside scope and quoted separately.`,
   },
   {
     title: '4. Limitation of Liability',
@@ -62,6 +64,7 @@ const agreementSections = [
       'This agreement shall be governed by and construed in accordance with the laws of the State of California, without regard to conflict of law principles.',
   },
 ];
+}
 
 export default function AgreementPage() {
   const { client } = usePortal();
@@ -167,7 +170,7 @@ export default function AgreementPage() {
           Service Agreement — isboringLLC
         </h2>
 
-        {agreementSections.map((section) => (
+        {getAgreementSections(client.plan, client.monthly_rate, client.monthly_change_limit).map((section) => (
           <div key={section.title}>
             <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-1.5">
               {section.title}

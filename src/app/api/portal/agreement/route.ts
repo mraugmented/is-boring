@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, plan')
+    .select('id, plan, monthly_rate, monthly_change_limit')
     .eq('user_id', user.id)
     .single();
 
@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       signer_name,
       signer_email,
       plan: client.plan,
-      monthly_rate: 15000,
-      monthly_change_limit: 5,
+      monthly_rate: client.monthly_rate,
+      monthly_change_limit: client.monthly_change_limit,
       signed_at: new Date().toISOString(),
       ip_address: ipAddress,
       user_agent: userAgent,

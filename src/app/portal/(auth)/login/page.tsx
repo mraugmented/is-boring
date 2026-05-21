@@ -95,6 +95,15 @@ export default function PortalLoginPage() {
               />
             </div>
 
+            <div className="flex justify-end">
+              <Link
+                href="/portal/forgot-password"
+                className="text-xs text-[var(--text-tertiary)] hover:text-[var(--accent)] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             {error && (
               <p className="text-sm text-red-400">{error}</p>
             )}

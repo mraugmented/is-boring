@@ -82,6 +82,15 @@ export default function AdminLoginPage() {
             />
           </div>
 
+          <div className="flex justify-end -mt-2">
+            <a
+              href="/portal/forgot-password"
+              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--accent)] transition-colors"
+            >
+              Forgot password?
+            </a>
+          </div>
+
           <button
             type="submit"
             disabled={loading}

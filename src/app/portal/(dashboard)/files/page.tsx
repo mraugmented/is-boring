@@ -99,7 +99,8 @@ export default function PortalFilesPage() {
 
     for (const file of fileArray) {
       const timestamp = Date.now();
-      const storagePath = `${client.id}/${timestamp}_${file.name}`;
+      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${client.id}/${timestamp}_${sanitizedName}`;
 
       setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
 

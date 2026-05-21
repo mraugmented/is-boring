@@ -6,7 +6,6 @@ import { usePortal } from '@/components/portal/PortalContext';
 
 export default function PortalSettingsPage() {
   const { client } = usePortal();
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +35,6 @@ export default function PortalSettingsPage() {
         setMessage({ type: 'error', text: error.message });
       } else {
         setMessage({ type: 'success', text: 'Password updated successfully.' });
-        setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }
@@ -80,19 +78,6 @@ export default function PortalSettingsPage() {
 
         <div>
           <label className="block text-sm text-[var(--text-secondary)] mb-1.5">
-            Current Password
-          </label>
-          <input
-            type="password"
-            required
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded-[var(--radius-sm)] bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-[var(--text-secondary)] mb-1.5">
             New Password
           </label>
           <input
@@ -125,7 +110,7 @@ export default function PortalSettingsPage() {
 
         <button
           type="submit"
-          disabled={submitting || !currentPassword || !newPassword || !confirmPassword}
+          disabled={submitting || !newPassword || !confirmPassword}
           className="px-4 py-2 rounded-[var(--radius-sm)] bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >
           {submitting ? 'Updating...' : 'Update Password'}
