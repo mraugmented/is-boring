@@ -1,16 +1,17 @@
 /**
- * Lead Discovery Agent
- *
- * Scrapes Google Maps via SerpAPI (free tier: 100 searches/month)
- * or falls back to direct search scraping.
+ * Lead Discovery Agent v2
  *
  * Finds LA service businesses with no website or outdated websites.
+ * Extracts emails from websites when possible.
  * Saves scored leads to Supabase prospect_leads table.
  *
  * Usage:
- *   npx tsx scripts/discover-leads.ts
- *   npx tsx scripts/discover-leads.ts --category "barber shop"
- *   npx tsx scripts/discover-leads.ts --category "nail salon" --area "North Hollywood"
+ *   npx tsx scripts/discover-leads.ts                                    # all categories, default cities
+ *   npx tsx scripts/discover-leads.ts --category "barber shop"           # single category, default cities
+ *   npx tsx scripts/discover-leads.ts --city "Torrance CA"               # all categories, single city
+ *   npx tsx scripts/discover-leads.ts --category "nail salon" --city "Torrance CA"
+ *   npx tsx scripts/discover-leads.ts --batch                            # run ALL categories x ALL cities
+ *   npx tsx scripts/discover-leads.ts --batch --max-searches 20          # limit API usage
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -20,7 +21,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY!
 );
 
-// Target categories for is-boring clients
 const CATEGORIES = [
   'barber shop',
   'nail salon',
@@ -28,19 +28,24 @@ const CATEGORIES = [
   'hair salon',
   'plumber',
   'electrician',
-  'personal trainer gym',
-  'small gym fitness',
+  'personal trainer',
+  'small gym',
   'auto body shop',
-  'landscaping company',
+  'landscaping',
   'cleaning service',
   'tattoo shop',
   'pet grooming',
-  'handyman service',
+  'handyman',
   'moving company',
+  'massage therapist',
+  'yoga studio',
+  'dog walker',
+  'carpet cleaning',
+  'pressure washing',
 ];
 
-const LA_AREAS = [
-  'Los Angeles CA',
+const CITIES = [
+  'Torrance CA',
   'North Hollywood CA',
   'Studio City CA',
   'Sherman Oaks CA',
@@ -53,13 +58,39 @@ const LA_AREAS = [
   'Santa Monica CA',
   'West Hollywood CA',
   'Silver Lake Los Angeles CA',
-  'Echo Park Los Angeles CA',
   'Highland Park Los Angeles CA',
+  'Eagle Rock Los Angeles CA',
+  'Woodland Hills CA',
+  'Tarzana CA',
+  'Canoga Park CA',
+  'Reseda CA',
+  'Panorama City CA',
+  'Sun Valley CA',
+  'Arleta CA',
+  'Pacoima CA',
+  'Sylmar CA',
+  'Chatsworth CA',
+  'Northridge CA',
+  'Granada Hills CA',
+  'Porter Ranch CA',
+  'Redondo Beach CA',
+  'Hermosa Beach CA',
+  'Manhattan Beach CA',
+  'Hawthorne CA',
+  'Lawndale CA',
+  'Gardena CA',
+  'Carson CA',
+  'Lomita CA',
+  'San Pedro CA',
+  'Wilmington CA',
+  'Long Beach CA',
+  'Lakewood CA',
 ];
 
 interface Business {
   name: string;
   phone?: string;
+  email?: string;
   address?: string;
   website?: string;
   rating?: number;
@@ -67,9 +98,10 @@ interface Business {
   category: string;
 }
 
+let searchCount = 0;
+
 // ============================================
-// SerpAPI approach (recommended, 100 free/month)
-// Get key at: https://serpapi.com
+// SerpAPI — Google Maps search
 // ============================================
 async function searchSerpAPI(query: string): Promise<Business[]> {
   const apiKey = process.env.SERPAPI_KEY;
@@ -84,9 +116,13 @@ async function searchSerpAPI(query: string): Promise<Business[]> {
 
   try {
     const res = await fetch(`https://serpapi.com/search?${params}`);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`  SerpAPI ${res.status}: ${res.statusText}`);
+      return [];
+    }
 
     const data = await res.json();
+    searchCount++;
     const results = data.local_results || [];
 
     return results.map((r: Record<string, unknown>) => ({
@@ -105,93 +141,41 @@ async function searchSerpAPI(query: string): Promise<Business[]> {
 }
 
 // ============================================
-// Free fallback: Google Custom Search API
-// (100 queries/day free with API key)
+// Extract email from a website
 // ============================================
-async function searchGoogle(query: string): Promise<Business[]> {
-  const apiKey = process.env.GOOGLE_API_KEY;
-  const cx = process.env.GOOGLE_SEARCH_CX;
-  if (!apiKey || !cx) return [];
-
-  const params = new URLSearchParams({
-    key: apiKey,
-    cx,
-    q: query,
-    num: '10',
-  });
-
+async function scrapeEmail(url: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
-    if (!res.ok) return [];
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
-    const data = await res.json();
-    const items = data.items || [];
-
-    return items
-      .filter((item: Record<string, unknown>) => {
-        const link = item.link as string;
-        // Filter out directory listings, keep actual business pages
-        return !link.includes('yelp.com') && !link.includes('yellowpages') && !link.includes('facebook.com');
-      })
-      .map((item: Record<string, unknown>) => ({
-        name: (item.title as string).split(' - ')[0].split(' | ')[0].trim(),
-        website: item.link as string,
-        address: undefined,
-        phone: undefined,
-        category: query.split(' in ')[0],
-      }));
-  } catch (err) {
-    console.error(`Google Search error for "${query}":`, err);
-    return [];
-  }
-}
-
-// ============================================
-// Free: Scrape from public directories
-// ============================================
-async function searchYelpFree(category: string, location: string): Promise<Business[]> {
-  const query = encodeURIComponent(`${category} ${location}`);
-  try {
-    const res = await fetch(`https://www.yelp.com/search?find_desc=${encodeURIComponent(category)}&find_loc=${encodeURIComponent(location)}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
+    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+    const res = await fetch(fullUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; is-boring-bot/1.0)' },
+      redirect: 'follow',
     });
+    clearTimeout(timeout);
 
-    if (!res.ok) return [];
+    if (!res.ok) return null;
     const html = await res.text();
 
-    // Extract business names and phones from Yelp HTML
-    const businesses: Business[] = [];
+    // Extract emails with regex
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    const emails = html.match(emailRegex) || [];
 
-    // Simple regex extraction for business names from Yelp
-    const nameMatches = html.matchAll(/class="css-19v1rkv"[^>]*>([^<]+)<\/a>/g);
-    for (const match of nameMatches) {
-      if (match[1] && !match[1].includes('Yelp') && match[1].length > 2) {
-        businesses.push({
-          name: match[1].trim(),
-          category,
-        });
-      }
-    }
+    // Filter out common junk emails
+    const junk = ['example.com', 'wixpress', 'sentry.io', 'squarespace', 'wordpress', 'w3.org', 'schema.org', 'googleapis', 'google.com', 'facebook.com', 'twitter.com'];
+    const validEmails = emails.filter(e => !junk.some(j => e.includes(j)));
 
-    // Alternative pattern
-    if (businesses.length === 0) {
-      const altMatches = html.matchAll(/"name":"([^"]+)","phone":"([^"]*)","addressLines":\["([^"]*)"/g);
-      for (const match of altMatches) {
-        businesses.push({
-          name: match[1],
-          phone: match[2] || undefined,
-          address: match[3] || undefined,
-          category,
-        });
-      }
-    }
+    // Prefer emails that look like business emails (info@, contact@, sales@, hello@)
+    const preferred = validEmails.find(e =>
+      e.startsWith('info@') || e.startsWith('contact@') || e.startsWith('sales@') ||
+      e.startsWith('hello@') || e.startsWith('admin@') || e.startsWith('office@')
+    );
 
-    return businesses.slice(0, 20);
-  } catch (err) {
-    console.error(`Yelp scrape error:`, err);
-    return [];
+    return preferred || validEmails[0] || null;
+  } catch {
+    return null;
   }
 }
 
@@ -203,7 +187,8 @@ async function checkWebsite(url: string): Promise<{ exists: boolean; score: numb
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
-    const res = await fetch(url, {
+    const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+    const res = await fetch(fullUrl, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; is-boring-bot/1.0)' },
       redirect: 'follow',
@@ -213,27 +198,18 @@ async function checkWebsite(url: string): Promise<{ exists: boolean; score: numb
     if (!res.ok) return { exists: false, score: 0 };
 
     const html = await res.text();
-    let score = 10; // Start at 10, deduct for issues
+    let score = 10;
 
-    // Check for mobile viewport
     if (!html.includes('viewport')) score -= 3;
-
-    // Check for HTTPS
     if (!url.startsWith('https')) score -= 2;
 
-    // Check for modern frameworks (React, Next, Vue, etc.)
     const isModern = html.includes('__next') || html.includes('__nuxt') ||
                      html.includes('react') || html.includes('vue-app');
     if (!isModern) score -= 1;
 
-    // Check for very old patterns
     if (html.includes('<table') && html.includes('bgcolor')) score -= 3;
     if (html.includes('Flash') || html.includes('.swf')) score -= 4;
-
-    // Check for Wix/Squarespace/basic builders
     if (html.includes('wix.com') || html.includes('squarespace')) score -= 1;
-
-    // Check for very short pages (likely parked/placeholder)
     if (html.length < 2000) score -= 3;
 
     return { exists: true, score: Math.max(0, score) };
@@ -243,88 +219,90 @@ async function checkWebsite(url: string): Promise<{ exists: boolean; score: numb
 }
 
 // ============================================
-// Score a lead (higher = better prospect)
+// Score a lead
 // ============================================
 function scoreLead(biz: Business, websiteCheck: { exists: boolean; score: number }): number {
   let score = 0;
 
-  // No website = highest value
   if (!biz.website || !websiteCheck.exists) {
     score += 10;
   } else {
-    // Bad website = good prospect
     score += Math.max(0, 7 - websiteCheck.score);
   }
 
-  // Has reviews = established business
   if (biz.reviews && biz.reviews > 10) score += 2;
   if (biz.reviews && biz.reviews > 50) score += 1;
-
-  // Good rating = reputable
   if (biz.rating && biz.rating >= 4.0) score += 1;
-
-  // Has phone = contactable
   if (biz.phone) score += 1;
+  if (biz.email) score += 2; // Bonus for having email
 
   return score;
 }
 
 // ============================================
-// Main discovery loop
+// Main discovery
 // ============================================
-async function discover(targetCategory?: string, targetArea?: string) {
-  const categories = targetCategory ? [targetCategory] : CATEGORIES;
-  const areas = targetArea ? [targetArea] : LA_AREAS.slice(0, 3); // Start with 3 areas
-
+async function discover(opts: {
+  categories: string[];
+  cities: string[];
+  maxSearches?: number;
+}) {
+  const { categories, cities, maxSearches } = opts;
   let totalFound = 0;
   let totalSaved = 0;
+  let totalEmails = 0;
 
   for (const category of categories) {
-    for (const area of areas) {
-      const query = `${category} in ${area}`;
-      console.log(`\n🔍 Searching: ${query}`);
-
-      // Try SerpAPI first, then Yelp, then Google
-      let businesses: Business[] = [];
-
-      businesses = await searchSerpAPI(query);
-      if (businesses.length === 0) {
-        console.log('  SerpAPI unavailable, trying Yelp...');
-        businesses = await searchYelpFree(category, area);
+    for (const city of cities) {
+      if (maxSearches && searchCount >= maxSearches) {
+        console.log(`\n⚠️  Hit max searches limit (${maxSearches}). Stopping.`);
+        printSummary(totalFound, totalSaved, totalEmails);
+        return;
       }
+
+      const query = `${category} in ${city}`;
+      console.log(`\n🔍 [${searchCount + 1}${maxSearches ? `/${maxSearches}` : ''}] ${query}`);
+
+      const businesses = await searchSerpAPI(query);
       if (businesses.length === 0) {
-        console.log('  Yelp unavailable, trying Google Search...');
-        businesses = await searchGoogle(`${category} ${area} phone email`);
+        console.log('  No results');
+        continue;
       }
 
       console.log(`  Found ${businesses.length} businesses`);
       totalFound += businesses.length;
 
       for (const biz of businesses) {
-        // Check website quality
+        // Check website + try to get email
         let websiteCheck = { exists: false, score: 0 };
+        let email: string | null = null;
+
         if (biz.website) {
           const url = biz.website.startsWith('http') ? biz.website : `https://${biz.website}`;
-          websiteCheck = await checkWebsite(url);
+          [websiteCheck, email] = await Promise.all([
+            checkWebsite(url),
+            scrapeEmail(url),
+          ]);
+          if (email) {
+            biz.email = email;
+            totalEmails++;
+          }
         }
 
         const leadScore = scoreLead(biz, websiteCheck);
 
-        // Only save leads with score >= 5 (worth pursuing)
         if (leadScore < 5) {
-          console.log(`  ⏭  ${biz.name} — score ${leadScore} (too low, skipping)`);
-          continue;
+          continue; // Skip low-quality leads silently
         }
 
-        // Upsert to avoid duplicates
         const { error } = await supabase.from('prospect_leads').upsert(
           {
             business_name: biz.name,
             category,
             phone: biz.phone || null,
-            email: null, // Would need to scrape from website
+            email: biz.email || null,
             address: biz.address || null,
-            city: area,
+            city,
             website_url: biz.website || null,
             has_website: websiteCheck.exists,
             website_score: websiteCheck.score,
@@ -339,29 +317,53 @@ async function discover(targetCategory?: string, targetArea?: string) {
 
         if (!error) {
           totalSaved++;
-          const icon = websiteCheck.exists ? '🟡' : '🟢';
-          console.log(`  ${icon} ${biz.name} — score ${leadScore} ${!websiteCheck.exists ? '(NO WEBSITE!)' : `(site score: ${websiteCheck.score}/10)`}`);
+          const icon = !websiteCheck.exists ? '🟢' : leadScore >= 7 ? '🟡' : '⚪';
+          const emailTag = biz.email ? ` 📧 ${biz.email}` : '';
+          console.log(`  ${icon} ${biz.name} — score ${leadScore}${!websiteCheck.exists ? ' (NO WEBSITE!)' : ` (site: ${websiteCheck.score}/10)`}${emailTag}`);
         }
       }
 
       // Rate limit between searches
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 1500));
     }
   }
 
-  console.log(`\n✅ Done! Found ${totalFound} businesses, saved ${totalSaved} qualified leads.`);
+  printSummary(totalFound, totalSaved, totalEmails);
+}
+
+function printSummary(found: number, saved: number, emails: number) {
+  console.log(`\n${'='.repeat(50)}`);
+  console.log(`✅ Discovery complete!`);
+  console.log(`   Searches used: ${searchCount}`);
+  console.log(`   Businesses found: ${found}`);
+  console.log(`   Qualified leads saved: ${saved}`);
+  console.log(`   Emails extracted: ${emails}`);
+  console.log(`${'='.repeat(50)}`);
 }
 
 // ============================================
-// CLI entry
+// CLI
 // ============================================
 const args = process.argv.slice(2);
 let category: string | undefined;
-let area: string | undefined;
+let city: string | undefined;
+let batch = false;
+let maxSearches: number | undefined;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--category' && args[i + 1]) category = args[i + 1];
-  if (args[i] === '--area' && args[i + 1]) area = args[i + 1];
+  if (args[i] === '--city' && args[i + 1]) city = args[i + 1];
+  if (args[i] === '--batch') batch = true;
+  if (args[i] === '--max-searches' && args[i + 1]) maxSearches = parseInt(args[i + 1]);
 }
 
-discover(category, area);
+const categories = category ? [category] : batch ? CATEGORIES : CATEGORIES.slice(0, 5);
+const cities = city ? [city] : batch ? CITIES.slice(0, 5) : CITIES.slice(0, 3);
+
+console.log(`\n🚀 is-boring Lead Discovery Agent v2`);
+console.log(`   Categories: ${categories.length} (${categories.slice(0, 3).join(', ')}${categories.length > 3 ? '...' : ''})`);
+console.log(`   Cities: ${cities.length} (${cities.slice(0, 3).join(', ')}${cities.length > 3 ? '...' : ''})`);
+console.log(`   Max searches: ${maxSearches || 'unlimited'}`);
+console.log(`   Estimated API calls: ${categories.length * cities.length}\n`);
+
+discover({ categories, cities, maxSearches });
