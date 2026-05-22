@@ -73,14 +73,47 @@ export default function ProspectsPage() {
     fetchLeads();
   }
 
+  const [texting, setTexting] = useState<string | null>(null);
+  const [textSuccess, setTextSuccess] = useState('');
+  const [textError, setTextError] = useState('');
+
   async function convertToOutreach(lead: ProspectLead) {
-    // Navigate to outreach page with pre-filled data
     const params = new URLSearchParams({
       name: lead.business_name,
       email: lead.email || '',
       phone: lead.phone || '',
     });
     window.location.href = `/admin/outreach?${params}`;
+  }
+
+  async function sendText(lead: ProspectLead) {
+    setTexting(lead.id);
+    setTextSuccess('');
+    setTextError('');
+
+    try {
+      const res = await fetch('/api/admin/text-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: lead.phone,
+          businessName: lead.business_name,
+          prospectLeadId: lead.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setTextSuccess(`iMessage sent to ${lead.business_name}!`);
+        fetchLeads();
+      } else {
+        setTextError(data.error || 'Failed to send');
+      }
+    } catch {
+      setTextError('Failed to send. Check connection.');
+    } finally {
+      setTexting(null);
+    }
   }
 
   return (
@@ -91,6 +124,17 @@ export default function ProspectsPage() {
           LA businesses that need a website. Ranked by opportunity score.
         </p>
       </div>
+
+      {textSuccess && (
+        <div className="px-4 py-3 rounded-[var(--radius-sm)] bg-green-500/10 border border-green-500/20 text-green-400 text-sm">
+          {textSuccess}
+        </div>
+      )}
+      {textError && (
+        <div className="px-4 py-3 rounded-[var(--radius-sm)] bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {textError}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -241,12 +285,13 @@ export default function ProspectsPage() {
                       </button>
                     )}
                     {lead.status === 'new' && !lead.email && lead.phone && (
-                      <a
-                        href={`tel:${lead.phone}`}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-center"
+                      <button
+                        onClick={() => sendText(lead)}
+                        disabled={texting === lead.id}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors cursor-pointer disabled:opacity-50"
                       >
-                        Call
-                      </a>
+                        {texting === lead.id ? 'Sending...' : 'Text Pitch'}
+                      </button>
                     )}
                     {lead.status === 'new' && (
                       <button
