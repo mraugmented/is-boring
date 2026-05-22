@@ -134,9 +134,15 @@ export default function ProspectsPage() {
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
-          <p className="text-xs text-[var(--text-tertiary)]">Avg Score</p>
-          <p className="text-2xl font-semibold text-[var(--accent)]">
-            {leads.length > 0 ? (leads.reduce((a, l) => a + l.score, 0) / leads.length).toFixed(1) : '0'}
+          <p className="text-xs text-[var(--text-tertiary)]">Has Email</p>
+          <p className="text-2xl font-semibold text-blue-500">
+            {leads.filter((l) => l.email).length}
+          </p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
+          <p className="text-xs text-[var(--text-tertiary)]">Phone Only</p>
+          <p className="text-2xl font-semibold text-[var(--text-secondary)]">
+            {leads.filter((l) => !l.email && l.phone).length}
           </p>
         </div>
       </div>
@@ -226,12 +232,28 @@ export default function ProspectsPage() {
 
                   {/* Actions */}
                   <div className="flex flex-col gap-1">
-                    {lead.status === 'new' && (
+                    {lead.status === 'new' && lead.email && (
                       <button
                         onClick={() => convertToOutreach(lead)}
                         className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white transition-colors cursor-pointer"
                       >
                         Build & Pitch
+                      </button>
+                    )}
+                    {lead.status === 'new' && !lead.email && lead.phone && (
+                      <a
+                        href={`tel:${lead.phone}`}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors text-center"
+                      >
+                        Call
+                      </a>
+                    )}
+                    {lead.status === 'new' && (
+                      <button
+                        onClick={() => updateStatus(lead.id, 'contacted')}
+                        className="px-3 py-1.5 text-xs rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
+                      >
+                        Mark Contacted
                       </button>
                     )}
                     {lead.status === 'new' && (

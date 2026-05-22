@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import StatusBadge from '@/components/admin/StatusBadge';
 import type { Client } from '@/types/database';
@@ -13,6 +14,8 @@ export default function OutreachPage() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
+  const searchParams = useSearchParams();
+
   const [form, setForm] = useState({
     contactName: '',
     contactEmail: '',
@@ -20,7 +23,25 @@ export default function OutreachPage() {
     previewUrl: '',
     customMessage: '',
     plan: 'starter',
+    phone: '',
   });
+
+  // Pre-fill from URL params (coming from Prospects page)
+  useEffect(() => {
+    const name = searchParams.get('name');
+    const email = searchParams.get('email');
+    const phone = searchParams.get('phone');
+    if (name || email || phone) {
+      setForm(prev => ({
+        ...prev,
+        companyName: name || prev.companyName,
+        contactName: name || prev.contactName,
+        contactEmail: email || prev.contactEmail,
+        phone: phone || prev.phone,
+      }));
+      setShowForm(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     fetchProspects();
@@ -55,7 +76,7 @@ export default function OutreachPage() {
 
       if (res.ok) {
         setSuccess(`Email sent to ${form.contactEmail}! Prospect created.`);
-        setForm({ contactName: '', contactEmail: '', companyName: '', previewUrl: '', customMessage: '', plan: 'starter' });
+        setForm({ contactName: '', contactEmail: '', companyName: '', previewUrl: '', customMessage: '', plan: 'starter', phone: '' });
         setShowForm(false);
         fetchProspects();
       } else if (res.status === 207) {
