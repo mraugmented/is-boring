@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { contactName, contactEmail, companyName, previewUrl, customMessage, plan } = body;
+  const { contactName, contactEmail, companyName, previewUrl, customMessage, plan, phone } = body;
 
   if (!contactName || !contactEmail || !companyName || !previewUrl) {
     return NextResponse.json(
@@ -101,18 +101,21 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createSupabaseServerClient();
 
-  // Create prospect in DB
+  // Create prospect in DB — status is outreach_sent since we're sending the email
   const { data: client, error: dbError } = await supabase
     .from('clients')
     .insert({
       company_name: companyName,
       contact_name: contactName,
       contact_email: contactEmail,
+      phone: phone || null,
       plan: plan || 'starter',
-      status: 'prospect',
+      status: 'outreach_sent',
+      pipeline_stage_changed_at: new Date().toISOString(),
       preview_url: previewUrl,
       outreach_message: customMessage || null,
       outreach_sent_at: new Date().toISOString(),
+      monthly_rate: plan === 'enterprise' ? 250000 : plan === 'growth' ? 100000 : 15000,
     })
     .select()
     .single();
@@ -120,6 +123,21 @@ export async function POST(request: NextRequest) {
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
+
+  // Log activity
+  await supabase.from('activity_log').insert({
+    client_id: client.id,
+    actor: 'justyn',
+    action: 'outreach_sent',
+    details: `Outreach email sent to ${contactEmail} for ${companyName}`,
+  });
+
+  // Mark the prospect_lead as contacted (if it came from the scraper)
+  await supabase
+    .from('prospect_leads')
+    .update({ status: 'contacted' })
+    .eq('business_name', companyName)
+    .eq('status', 'new');
 
   // Send email
   const { html, text } = buildEmail({ contactName, companyName, previewUrl, customMessage });
