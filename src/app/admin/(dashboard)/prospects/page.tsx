@@ -20,8 +20,6 @@ interface ProspectLead {
   score: number;
   status: string;
   notes: string | null;
-  preview_url: string | null;
-  build_notes: string | null;
   scraped_at: string;
 }
 
@@ -79,13 +77,24 @@ export default function ProspectsPage() {
   const [textSuccess, setTextSuccess] = useState('');
   const [textError, setTextError] = useState('');
 
-  async function convertToOutreach(lead: ProspectLead) {
-    const params = new URLSearchParams({
-      name: lead.business_name,
-      email: lead.email || '',
-      phone: lead.phone || '',
+  async function addToBuildQueue(lead: ProspectLead) {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.from('build_queue').insert({
+      prospect_lead_id: lead.id,
+      business_name: lead.business_name,
+      category: lead.category,
+      phone: lead.phone,
+      email: lead.email,
+      city: lead.city,
+      website_url: lead.website_url,
+      status: 'queued',
     });
-    window.location.href = `/admin/outreach?${params}`;
+
+    if (!error) {
+      await supabase.from('prospect_leads').update({ status: 'contacted' }).eq('id', lead.id);
+      setTextSuccess(`${lead.business_name} added to build queue!`);
+      fetchLeads();
+    }
   }
 
   async function sendText(lead: ProspectLead) {
@@ -141,7 +150,7 @@ export default function ProspectsPage() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="flex gap-1 rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-subtle)] p-1">
-          {['new', 'building', 'ready', 'contacted', 'all'].map((s) => (
+          {['new', 'contacted', 'all'].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -168,9 +177,9 @@ export default function ProspectsPage() {
       </div>
 
       {/* Stats */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex gap-4">
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
-          <p className="text-xs text-[var(--text-tertiary)]">Total</p>
+          <p className="text-xs text-[var(--text-tertiary)]">Total Prospects</p>
           <p className="text-2xl font-semibold text-[var(--text-primary)]">{leads.length}</p>
         </div>
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
@@ -180,15 +189,15 @@ export default function ProspectsPage() {
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
-          <p className="text-xs text-[var(--text-tertiary)]">Building</p>
-          <p className="text-2xl font-semibold text-amber-500">
-            {leads.filter((l) => l.status === 'building').length}
+          <p className="text-xs text-[var(--text-tertiary)]">Has Email</p>
+          <p className="text-2xl font-semibold text-blue-500">
+            {leads.filter((l) => l.email).length}
           </p>
         </div>
         <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-5 py-4">
-          <p className="text-xs text-[var(--text-tertiary)]">Ready to Send</p>
-          <p className="text-2xl font-semibold text-[var(--accent)]">
-            {leads.filter((l) => l.status === 'ready').length}
+          <p className="text-xs text-[var(--text-tertiary)]">Phone Only</p>
+          <p className="text-2xl font-semibold text-[var(--text-secondary)]">
+            {leads.filter((l) => !l.email && l.phone).length}
           </p>
         </div>
       </div>
@@ -280,29 +289,13 @@ export default function ProspectsPage() {
                   <div className="flex flex-col gap-1">
                     {lead.status === 'new' && (
                       <button
-                        onClick={() => updateStatus(lead.id, 'building')}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer"
+                        onClick={() => addToBuildQueue(lead)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white transition-colors cursor-pointer"
                       >
                         Build This
                       </button>
                     )}
-                    {lead.status === 'building' && (
-                      <button
-                        onClick={() => updateStatus(lead.id, 'ready')}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white transition-colors cursor-pointer"
-                      >
-                        Mark Ready
-                      </button>
-                    )}
-                    {lead.status === 'ready' && lead.email && (
-                      <button
-                        onClick={() => convertToOutreach(lead)}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-600 hover:bg-green-700 text-white transition-colors cursor-pointer"
-                      >
-                        Send Pitch
-                      </button>
-                    )}
-                    {lead.status === 'ready' && !lead.email && lead.phone && (
+                    {lead.status === 'new' && !lead.email && lead.phone && (
                       <button
                         onClick={() => sendText(lead)}
                         disabled={texting === lead.id}
@@ -311,15 +304,13 @@ export default function ProspectsPage() {
                         {texting === lead.id ? 'Sending...' : 'Text Pitch'}
                       </button>
                     )}
-                    {lead.preview_url && (
-                      <a
-                        href={lead.preview_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 text-xs rounded-md text-center border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-default)] transition-colors"
+                    {lead.status === 'new' && (
+                      <button
+                        onClick={() => updateStatus(lead.id, 'contacted')}
+                        className="px-3 py-1.5 text-xs rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
                       >
-                        Preview
-                      </a>
+                        Mark Contacted
+                      </button>
                     )}
                     {lead.status === 'new' && (
                       <button

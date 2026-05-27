@@ -6,11 +6,6 @@ interface StatusBadgeProps {
 }
 
 const statusStyles: Record<string, { bg: string; text: string; dot?: string }> = {
-  approved: { bg: 'bg-cyan-500/10', text: 'text-cyan-500', dot: 'bg-cyan-500' },
-  building: { bg: 'bg-amber-500/10', text: 'text-amber-500', dot: 'bg-amber-500' },
-  ready: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', dot: 'bg-emerald-500' },
-  contacted: { bg: 'bg-indigo-500/10', text: 'text-indigo-500', dot: 'bg-indigo-500' },
-  converted: { bg: 'bg-green-500/10', text: 'text-green-500', dot: 'bg-green-500' },
   pending: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', dot: 'bg-yellow-500' },
   in_progress: { bg: 'bg-blue-500/10', text: 'text-blue-500', dot: 'bg-blue-500' },
   review: { bg: 'bg-purple-500/10', text: 'text-purple-500', dot: 'bg-purple-500' },
