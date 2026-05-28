@@ -39,7 +39,7 @@ function buildColdEmail(data: {
 
       <p style="margin:0 0 16px;">I came across <strong>${businessName}</strong> and thought you might be interested in leveling up your online presence. Whether you need a brand new site or a fresh update to what you have — we'd love to help.</p>
 
-      <p style="margin:0 0 16px;">We're a small, local team — not some big agency. We get what matters for businesses like yours: looking professional, showing up on Google, and making it easy for people to reach you.</p>
+      <p style="margin:0 0 16px;">We're a small, local team — not some big agency. And we don't charge thousands of dollars like most web studios. We're super cost effective and will work with you to make something great without breaking the bank.</p>
 
       <p style="margin:0 0 16px;"><strong>Here's what I'd like to offer:</strong> I'll build you a free prototype of what your new site could look like — no strings attached. If you love it, we can talk next steps. If not, no hard feelings at all.</p>
 
@@ -66,7 +66,7 @@ My name is Justyn — I run a small web design studio here in LA called is-borin
 
 I came across ${businessName} and thought you might be interested in leveling up your online presence. Whether you need a brand new site or a fresh update to what you have — we'd love to help.
 
-We're a small, local team — not some big agency. We get what matters for businesses like yours: looking professional, showing up on Google, and making it easy for people to reach you.
+We're a small, local team — not some big agency. And we don't charge thousands of dollars like most web studios. We're super cost effective and will work with you to make something great without breaking the bank.
 
 Here's what I'd like to offer: I'll build you a free prototype of what your new site could look like — no strings attached. If you love it, we can talk next steps. If not, no hard feelings at all.
 
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     await transporter.sendMail({
       from: `"Justyn from is-boring" <${process.env.GMAIL_USER}>`,
       to: email,
-      subject: `Quick question about ${businessName}`,
+      subject: `I'd like to build ${businessName} a website — for free`,
       text,
       html,
     });
