@@ -43,7 +43,7 @@ function buildColdEmail(data: {
 
       <p style="margin:0 0 16px;"><strong>Here's what I'd like to offer:</strong> I'll build you a free prototype of what your new site could look like — no strings attached. If you love it, we can talk next steps. If not, no hard feelings at all.</p>
 
-      <p style="margin:0 0 24px;">Would you be open to a quick chat? Just reply here or text me anytime.</p>
+      <p style="margin:0 0 24px;">Just reply here if you're interested and we'll send you a prototype :)</p>
     </div>
 
     <a href="https://is-boring.com" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px;">
@@ -70,7 +70,7 @@ We're a small, local team — not some big agency. And we don't charge thousands
 
 Here's what I'd like to offer: I'll build you a free prototype of what your new site could look like — no strings attached. If you love it, we can talk next steps. If not, no hard feelings at all.
 
-Would you be open to a quick chat? Just reply here or text me anytime.
+Just reply here if you're interested and we'll send you a prototype :)
 
 See our work: https://is-boring.com
 
