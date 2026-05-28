@@ -69,7 +69,7 @@ export default function ColdOutreachPage() {
     ]);
 
     const today = new Date().toISOString().split('T')[0];
-    const sentToday = (activityData || []).filter(a => a.created_at?.startsWith(today)).length;
+    const sentToday = (activityData || []).filter((a: { created_at: string }) => a.created_at?.startsWith(today)).length;
     const totalSent = (activityData || []).length;
 
     // Count categories
