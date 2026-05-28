@@ -174,6 +174,16 @@ export default function ColdOutreachPage() {
     fetchAll();
   }
 
+  const TARGET_CATEGORIES = [
+    'small gym', 'personal trainer', 'plumber', 'electrician',
+    'beauty salon', 'hair salon', 'nail salon', 'barber shop',
+    'auto body shop', 'landscaping', 'cleaning service', 'tattoo shop',
+    'pet grooming', 'handyman', 'moving company', 'massage therapist',
+    'yoga studio', 'carpet cleaning', 'pressure washing', 'florist',
+    'bakery', 'dog walker', 'chiropractor', 'veterinarian',
+    'photographer', 'catering', 'tutoring', 'dry cleaner', 'tailor', 'locksmith',
+  ];
+
   async function discoverLeads() {
     if (!discoverCity) {
       setError('Pick a city');
@@ -183,27 +193,31 @@ export default function ColdOutreachPage() {
     setError('');
     setSuccess('');
 
-    try {
-      const body: Record<string, string> = { city: discoverCity };
-      if (discoverCategory) body.categories = JSON.stringify([discoverCategory]);
+    const cats = discoverCategory ? [discoverCategory] : TARGET_CATEGORIES;
+    let totalFound = 0, totalSaved = 0, totalEmails = 0;
 
-      const res = await fetch('/api/admin/discover-leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city: discoverCity, ...(discoverCategory ? { categories: [discoverCategory] } : {}) }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSuccess(`[${discoverCity}] Found ${data.found} businesses, saved ${data.saved} leads (${data.emails} emails). Used ${data.searchesUsed} API searches.`);
-        fetchAll();
-      } else {
-        setError(data.error || 'Discovery failed');
-      }
-    } catch {
-      setError('Discovery failed. Check connection.');
-    } finally {
-      setDiscovering(false);
+    // Send one category at a time so we don't timeout
+    for (const cat of cats) {
+      try {
+        const res = await fetch('/api/admin/discover-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city: discoverCity, category: cat }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          totalFound += data.found;
+          totalSaved += data.saved;
+          totalEmails += data.emails;
+          setSweepLog(prev => [...prev, `${discoverCity} → ${cat}: ${data.found} found, ${data.saved} saved, ${data.emails} emails`]);
+        }
+      } catch { /* continue */ }
+      await new Promise(r => setTimeout(r, 500));
     }
+
+    setSuccess(`[${discoverCity}] Done! ${totalFound} found, ${totalSaved} saved, ${totalEmails} emails.`);
+    setDiscovering(false);
+    fetchAll();
   }
 
   const LA_CITIES = [
@@ -226,52 +240,53 @@ export default function ColdOutreachPage() {
   ];
 
   async function runFullSweep() {
-    if (!confirm(`Run full LA sweep across ${LA_CITIES.length} cities with all target categories? This will use a lot of SerpAPI searches.`)) return;
+    const totalJobs = LA_CITIES.length * TARGET_CATEGORIES.length;
+    if (!confirm(`Run full LA sweep: ${LA_CITIES.length} cities × ${TARGET_CATEGORIES.length} categories = ${totalJobs} searches. This will take a while. Continue?`)) return;
 
     setSweeping(true);
     setSweepLog([]);
-    setSweepProgress({ done: 0, total: LA_CITIES.length });
+    setSweepProgress({ done: 0, total: totalJobs });
     setError('');
     setSuccess('');
 
     let totalFound = 0;
     let totalSaved = 0;
     let totalEmails = 0;
-    let totalSearches = 0;
+    let done = 0;
 
-    for (let i = 0; i < LA_CITIES.length; i++) {
-      const city = LA_CITIES[i];
-      setSweepProgress({ done: i, total: LA_CITIES.length });
+    for (const city of LA_CITIES) {
+      let cityFound = 0, citySaved = 0, cityEmails = 0;
 
-      try {
-        const res = await fetch('/api/admin/discover-leads', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city }),
-        });
+      for (const cat of TARGET_CATEGORIES) {
+        try {
+          const res = await fetch('/api/admin/discover-leads', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city, category: cat }),
+          });
 
-        if (res.ok) {
-          const data = await res.json();
-          totalFound += data.found;
-          totalSaved += data.saved;
-          totalEmails += data.emails;
-          totalSearches += data.searchesUsed;
-          setSweepLog(prev => [...prev, `${city}: ${data.found} found, ${data.saved} saved, ${data.emails} emails (${data.searchesUsed} searches)`]);
-        } else {
-          const data = await res.json().catch(() => ({}));
-          setSweepLog(prev => [...prev, `${city}: FAILED — ${data.error || 'unknown error'}`]);
-        }
-      } catch {
-        setSweepLog(prev => [...prev, `${city}: FAILED — network error`]);
+          if (res.ok) {
+            const data = await res.json();
+            cityFound += data.found;
+            citySaved += data.saved;
+            cityEmails += data.emails;
+          }
+        } catch { /* continue */ }
+
+        done++;
+        setSweepProgress({ done, total: totalJobs });
+        await new Promise(r => setTimeout(r, 500));
       }
 
-      // Brief pause between cities
-      await new Promise(r => setTimeout(r, 2000));
+      totalFound += cityFound;
+      totalSaved += citySaved;
+      totalEmails += cityEmails;
+      setSweepLog(prev => [...prev, `${city}: ${cityFound} found, ${citySaved} saved, ${cityEmails} emails`]);
     }
 
-    setSweepProgress({ done: LA_CITIES.length, total: LA_CITIES.length });
+    setSweepProgress({ done: totalJobs, total: totalJobs });
     setSweeping(false);
-    setSuccess(`Full LA sweep complete! ${totalFound} businesses found, ${totalSaved} leads saved, ${totalEmails} emails extracted. ${totalSearches} API searches used.`);
+    setSuccess(`Full LA sweep complete! ${totalFound} found, ${totalSaved} saved, ${totalEmails} emails. ${totalJobs} searches used.`);
     fetchAll();
   }
 

@@ -145,7 +145,9 @@ function scoreLead(biz: Business, websiteCheck: { exists: boolean; score: number
   return score;
 }
 
-// Single city + categories search — called per city from the frontend
+export const maxDuration = 300; // 5 min timeout on Vercel
+
+// Single city + single category batch — called repeatedly from the frontend
 export async function POST(request: NextRequest) {
   const auth = await verifyAdmin(request);
   if (auth.error) {
@@ -153,14 +155,15 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { city, categories: customCategories } = body;
+  const { city, category } = body;
 
   if (!city) {
     return NextResponse.json({ error: 'City is required' }, { status: 400 });
   }
 
-  const categories = customCategories && customCategories.length > 0
-    ? customCategories
+  // If a single category is provided, search just that. Otherwise do a batch of 5.
+  const categories = category
+    ? [category]
     : TARGET_CATEGORIES;
 
   const supabase = await createSupabaseServerClient();
