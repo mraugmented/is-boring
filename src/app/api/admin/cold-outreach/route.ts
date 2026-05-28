@@ -46,7 +46,7 @@ function buildColdEmail(data: {
       <p style="margin:0 0 24px;">Would you be open to a quick chat? Just reply here or text me anytime.</p>
     </div>
 
-    <a href="https://earthisboring.com" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px;">
+    <a href="https://is-boring.com" style="display:inline-block;padding:14px 32px;background:linear-gradient(135deg,#7c3aed,#6366f1);color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;margin-bottom:24px;">
       See Our Work
     </a>
 
@@ -72,7 +72,7 @@ Here's what I'd like to offer: I'll build you a free prototype of what your new 
 
 Would you be open to a quick chat? Just reply here or text me anytime.
 
-See our work: https://earthisboring.com
+See our work: https://is-boring.com
 
 Justyn
 Founder, is-boring
