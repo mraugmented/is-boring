@@ -2,23 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdmin } from '@/lib/admin-auth';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 
-const CATEGORIES = [
-  'barber shop', 'nail salon', 'beauty salon', 'hair salon', 'plumber',
-  'electrician', 'personal trainer', 'small gym', 'auto body shop',
-  'landscaping', 'cleaning service', 'tattoo shop', 'pet grooming',
-  'handyman', 'moving company', 'massage therapist', 'yoga studio',
-  'dog walker', 'carpet cleaning', 'pressure washing', 'restaurant',
-  'bakery', 'florist', 'dentist', 'chiropractor', 'veterinarian',
-  'real estate agent', 'photographer', 'catering', 'tutoring',
-];
-
-const CITIES = [
-  'Torrance CA', 'North Hollywood CA', 'Studio City CA', 'Sherman Oaks CA',
-  'Encino CA', 'Van Nuys CA', 'Burbank CA', 'Glendale CA', 'Pasadena CA',
-  'Culver City CA', 'Santa Monica CA', 'West Hollywood CA', 'Woodland Hills CA',
-  'Redondo Beach CA', 'Hermosa Beach CA', 'Manhattan Beach CA', 'Long Beach CA',
-  'Downtown Los Angeles CA', 'Koreatown Los Angeles CA', 'Echo Park Los Angeles CA',
-  'Los Feliz Los Angeles CA', 'Atwater Village Los Angeles CA',
+// Target: mom-and-pop, local service businesses
+const TARGET_CATEGORIES = [
+  'small gym',
+  'personal trainer',
+  'plumber',
+  'electrician',
+  'beauty salon',
+  'hair salon',
+  'nail salon',
+  'barber shop',
+  'auto body shop',
+  'landscaping',
+  'cleaning service',
+  'tattoo shop',
+  'pet grooming',
+  'handyman',
+  'moving company',
+  'massage therapist',
+  'yoga studio',
+  'carpet cleaning',
+  'pressure washing',
+  'florist',
+  'bakery',
+  'dog walker',
+  'chiropractor',
+  'veterinarian',
+  'photographer',
+  'catering',
+  'tutoring',
+  'dry cleaner',
+  'tailor',
+  'locksmith',
 ];
 
 interface Business {
@@ -46,9 +61,7 @@ async function searchSerpAPI(query: string): Promise<Business[]> {
     const res = await fetch(`https://serpapi.com/search?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
-    const results = data.local_results || [];
-
-    return results.map((r: Record<string, unknown>) => ({
+    return (data.local_results || []).map((r: Record<string, unknown>) => ({
       name: r.title as string,
       phone: r.phone as string | undefined,
       address: r.address as string | undefined,
@@ -64,7 +77,7 @@ async function searchSerpAPI(query: string): Promise<Business[]> {
 async function scrapeEmail(url: string): Promise<string | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 6000);
     const fullUrl = url.startsWith('http') ? url : `https://${url}`;
     const res = await fetch(fullUrl, {
       signal: controller.signal,
@@ -92,7 +105,7 @@ async function scrapeEmail(url: string): Promise<string | null> {
 async function checkWebsite(url: string): Promise<{ exists: boolean; score: number }> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 6000);
     const fullUrl = url.startsWith('http') ? url : `https://${url}`;
     const res = await fetch(fullUrl, {
       signal: controller.signal,
@@ -106,8 +119,7 @@ async function checkWebsite(url: string): Promise<{ exists: boolean; score: numb
     let score = 10;
     if (!html.includes('viewport')) score -= 3;
     if (!url.startsWith('https')) score -= 2;
-    const isModern = html.includes('__next') || html.includes('__nuxt') || html.includes('react') || html.includes('vue-app');
-    if (!isModern) score -= 1;
+    if (!(html.includes('__next') || html.includes('__nuxt') || html.includes('react') || html.includes('vue-app'))) score -= 1;
     if (html.includes('<table') && html.includes('bgcolor')) score -= 3;
     if (html.includes('Flash') || html.includes('.swf')) score -= 4;
     if (html.includes('wix.com') || html.includes('squarespace')) score -= 1;
@@ -133,6 +145,7 @@ function scoreLead(biz: Business, websiteCheck: { exists: boolean; score: number
   return score;
 }
 
+// Single city + categories search — called per city from the frontend
 export async function POST(request: NextRequest) {
   const auth = await verifyAdmin(request);
   if (auth.error) {
@@ -140,72 +153,83 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { category, city } = body;
+  const { city, categories: customCategories } = body;
 
-  const categories = category ? [category] : CATEGORIES.slice(0, 5);
-  const cities = city ? [city] : CITIES.slice(0, 5);
+  if (!city) {
+    return NextResponse.json({ error: 'City is required' }, { status: 400 });
+  }
+
+  const categories = customCategories && customCategories.length > 0
+    ? customCategories
+    : TARGET_CATEGORIES;
 
   const supabase = await createSupabaseServerClient();
   let totalFound = 0;
   let totalSaved = 0;
   let totalEmails = 0;
+  let searchesUsed = 0;
 
   for (const cat of categories) {
-    for (const c of cities) {
-      const query = `${cat} in ${c}`;
-      const businesses = await searchSerpAPI(query);
-      totalFound += businesses.length;
+    const query = `${cat} in ${city}`;
+    const businesses = await searchSerpAPI(query);
+    searchesUsed++;
+    totalFound += businesses.length;
 
-      for (const biz of businesses) {
-        let websiteCheck = { exists: false, score: 0 };
+    for (const biz of businesses) {
+      let websiteCheck = { exists: false, score: 0 };
 
-        if (biz.website) {
-          const url = biz.website.startsWith('http') ? biz.website : `https://${biz.website}`;
-          const [wc, email] = await Promise.all([checkWebsite(url), scrapeEmail(url)]);
-          websiteCheck = wc;
-          if (email) {
-            biz.email = email;
-            totalEmails++;
-          }
+      if (biz.website) {
+        const url = biz.website.startsWith('http') ? biz.website : `https://${biz.website}`;
+        const [wc, email] = await Promise.all([checkWebsite(url), scrapeEmail(url)]);
+        websiteCheck = wc;
+        if (email) {
+          biz.email = email;
+          totalEmails++;
         }
-
-        const leadScore = scoreLead(biz, websiteCheck);
-        if (leadScore < 5) continue;
-
-        const { error } = await supabase.from('prospect_leads').upsert(
-          {
-            business_name: biz.name,
-            category: cat,
-            phone: biz.phone || null,
-            email: biz.email || null,
-            address: biz.address || null,
-            city: c,
-            website_url: biz.website || null,
-            has_website: websiteCheck.exists,
-            website_score: websiteCheck.score,
-            review_count: biz.reviews || 0,
-            rating: biz.rating || null,
-            score: leadScore,
-            source: 'google_maps',
-            scraped_at: new Date().toISOString(),
-          },
-          { onConflict: 'business_name,address', ignoreDuplicates: true }
-        );
-
-        if (!error) totalSaved++;
       }
 
-      // Rate limit
-      await new Promise(r => setTimeout(r, 1500));
+      const leadScore = scoreLead(biz, websiteCheck);
+      if (leadScore < 5) continue;
+
+      const { error } = await supabase.from('prospect_leads').upsert(
+        {
+          business_name: biz.name,
+          category: cat,
+          phone: biz.phone || null,
+          email: biz.email || null,
+          address: biz.address || null,
+          city,
+          website_url: biz.website || null,
+          has_website: websiteCheck.exists,
+          website_score: websiteCheck.score,
+          review_count: biz.reviews || 0,
+          rating: biz.rating || null,
+          score: leadScore,
+          source: 'google_maps',
+          scraped_at: new Date().toISOString(),
+        },
+        { onConflict: 'business_name,address', ignoreDuplicates: true }
+      );
+
+      if (!error) totalSaved++;
     }
+
+    // Rate limit between searches
+    await new Promise(r => setTimeout(r, 1000));
   }
 
-  // Log discovery
+  // Log
   await supabase.from('activity_log').insert({
     actor: 'justyn',
     action: 'leads_discovered',
-    details: `Discovered ${totalFound} businesses, saved ${totalSaved} leads (${totalEmails} with emails). Categories: ${categories.join(', ')}. Cities: ${cities.join(', ')}.`,
+    details: `[${city}] Found ${totalFound}, saved ${totalSaved}, emails ${totalEmails}. Searches: ${searchesUsed}.`,
   });
 
-  return NextResponse.json({ found: totalFound, saved: totalSaved, emails: totalEmails });
+  return NextResponse.json({
+    city,
+    found: totalFound,
+    saved: totalSaved,
+    emails: totalEmails,
+    searchesUsed,
+  });
 }

@@ -37,6 +37,9 @@ export default function ColdOutreachPage() {
   const [discovering, setDiscovering] = useState(false);
   const [discoverCategory, setDiscoverCategory] = useState('');
   const [discoverCity, setDiscoverCity] = useState('');
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepLog, setSweepLog] = useState<string[]>([]);
+  const [sweepProgress, setSweepProgress] = useState({ done: 0, total: 0 });
   const [testEmail, setTestEmail] = useState('');
   const [testBusiness, setTestBusiness] = useState('Test Business');
   const [success, setSuccess] = useState('');
@@ -172,8 +175,8 @@ export default function ColdOutreachPage() {
   }
 
   async function discoverLeads() {
-    if (!discoverCategory && !discoverCity) {
-      setError('Pick at least a category or city');
+    if (!discoverCity) {
+      setError('Pick a city');
       return;
     }
     setDiscovering(true);
@@ -181,17 +184,17 @@ export default function ColdOutreachPage() {
     setSuccess('');
 
     try {
+      const body: Record<string, string> = { city: discoverCity };
+      if (discoverCategory) body.categories = JSON.stringify([discoverCategory]);
+
       const res = await fetch('/api/admin/discover-leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category: discoverCategory || undefined,
-          city: discoverCity || undefined,
-        }),
+        body: JSON.stringify({ city: discoverCity, ...(discoverCategory ? { categories: [discoverCategory] } : {}) }),
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccess(`Found ${data.found} businesses, saved ${data.saved} qualified leads (${data.emails} with emails)`);
+        setSuccess(`[${discoverCity}] Found ${data.found} businesses, saved ${data.saved} leads (${data.emails} emails). Used ${data.searchesUsed} API searches.`);
         fetchAll();
       } else {
         setError(data.error || 'Discovery failed');
@@ -201,6 +204,75 @@ export default function ColdOutreachPage() {
     } finally {
       setDiscovering(false);
     }
+  }
+
+  const LA_CITIES = [
+    'Chatsworth CA', 'Northridge CA', 'Granada Hills CA', 'Porter Ranch CA',
+    'Sylmar CA', 'San Fernando CA', 'Pacoima CA', 'Arleta CA', 'Sun Valley CA',
+    'North Hollywood CA', 'Valley Village CA', 'Studio City CA', 'Sherman Oaks CA',
+    'Encino CA', 'Tarzana CA', 'Woodland Hills CA', 'Canoga Park CA', 'Reseda CA',
+    'Van Nuys CA', 'Panorama City CA', 'Burbank CA', 'Glendale CA', 'Pasadena CA',
+    'Eagle Rock Los Angeles CA', 'Highland Park Los Angeles CA', 'Silver Lake Los Angeles CA',
+    'Echo Park Los Angeles CA', 'Los Feliz Los Angeles CA', 'Atwater Village Los Angeles CA',
+    'Koreatown Los Angeles CA', 'Downtown Los Angeles CA', 'West Hollywood CA',
+    'Hollywood Los Angeles CA', 'Mid-Wilshire Los Angeles CA', 'Culver City CA',
+    'Santa Monica CA', 'Venice Los Angeles CA', 'Mar Vista Los Angeles CA',
+    'Westchester Los Angeles CA', 'Inglewood CA', 'Hawthorne CA', 'Lawndale CA',
+    'Gardena CA', 'Torrance CA', 'Redondo Beach CA', 'Hermosa Beach CA',
+    'Manhattan Beach CA', 'Carson CA', 'Lomita CA', 'San Pedro CA',
+    'Wilmington CA', 'Long Beach CA', 'Lakewood CA', 'Compton CA',
+    'Downey CA', 'Whittier CA', 'Montebello CA', 'Alhambra CA',
+    'South Pasadena CA', 'Monrovia CA', 'Arcadia CA', 'Azusa CA',
+  ];
+
+  async function runFullSweep() {
+    if (!confirm(`Run full LA sweep across ${LA_CITIES.length} cities with all target categories? This will use a lot of SerpAPI searches.`)) return;
+
+    setSweeping(true);
+    setSweepLog([]);
+    setSweepProgress({ done: 0, total: LA_CITIES.length });
+    setError('');
+    setSuccess('');
+
+    let totalFound = 0;
+    let totalSaved = 0;
+    let totalEmails = 0;
+    let totalSearches = 0;
+
+    for (let i = 0; i < LA_CITIES.length; i++) {
+      const city = LA_CITIES[i];
+      setSweepProgress({ done: i, total: LA_CITIES.length });
+
+      try {
+        const res = await fetch('/api/admin/discover-leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ city }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          totalFound += data.found;
+          totalSaved += data.saved;
+          totalEmails += data.emails;
+          totalSearches += data.searchesUsed;
+          setSweepLog(prev => [...prev, `${city}: ${data.found} found, ${data.saved} saved, ${data.emails} emails (${data.searchesUsed} searches)`]);
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setSweepLog(prev => [...prev, `${city}: FAILED — ${data.error || 'unknown error'}`]);
+        }
+      } catch {
+        setSweepLog(prev => [...prev, `${city}: FAILED — network error`]);
+      }
+
+      // Brief pause between cities
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    setSweepProgress({ done: LA_CITIES.length, total: LA_CITIES.length });
+    setSweeping(false);
+    setSuccess(`Full LA sweep complete! ${totalFound} businesses found, ${totalSaved} leads saved, ${totalEmails} emails extracted. ${totalSearches} API searches used.`);
+    fetchAll();
   }
 
   return (
@@ -261,20 +333,33 @@ export default function ColdOutreachPage() {
 
       {/* Discover New Leads */}
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6 space-y-4">
-        <h2 className="text-lg font-medium text-[var(--text-primary)]">Discover New Leads</h2>
-        <p className="text-sm text-[var(--text-tertiary)]">
-          Search Google Maps for businesses that need websites. Uses SerpAPI.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Category</label>
+            <h2 className="text-lg font-medium text-[var(--text-primary)]">Discover New Leads</h2>
+            <p className="text-sm text-[var(--text-tertiary)]">
+              Search Google Maps for mom-and-pop businesses. Uses SerpAPI.
+            </p>
+          </div>
+          <button
+            onClick={runFullSweep}
+            disabled={sweeping || discovering}
+            className="px-6 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            {sweeping ? `Sweeping... (${sweepProgress.done}/${sweepProgress.total})` : `Full LA Sweep (${LA_CITIES.length} cities)`}
+          </button>
+        </div>
+
+        {/* Single city search */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Category (optional)</label>
             <select
               value={discoverCategory}
               onChange={(e) => setDiscoverCategory(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
             >
-              <option value="">All categories</option>
-              {['barber shop', 'nail salon', 'beauty salon', 'hair salon', 'plumber', 'electrician', 'personal trainer', 'small gym', 'auto body shop', 'landscaping', 'cleaning service', 'tattoo shop', 'pet grooming', 'handyman', 'moving company', 'massage therapist', 'yoga studio', 'dog walker', 'carpet cleaning', 'pressure washing', 'restaurant', 'bakery', 'florist', 'dentist', 'chiropractor', 'veterinarian', 'real estate agent', 'photographer', 'catering', 'tutoring'].map(c => (
+              <option value="">All 30 categories</option>
+              {['small gym', 'personal trainer', 'plumber', 'electrician', 'beauty salon', 'hair salon', 'nail salon', 'barber shop', 'auto body shop', 'landscaping', 'cleaning service', 'tattoo shop', 'pet grooming', 'handyman', 'moving company', 'massage therapist', 'yoga studio', 'carpet cleaning', 'pressure washing', 'florist', 'bakery', 'dog walker', 'chiropractor', 'veterinarian', 'photographer', 'catering', 'tutoring', 'dry cleaner', 'tailor', 'locksmith'].map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -286,20 +371,48 @@ export default function ColdOutreachPage() {
               onChange={(e) => setDiscoverCity(e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--accent)] transition-colors"
             >
-              <option value="">All cities (top 5)</option>
-              {['Torrance CA', 'North Hollywood CA', 'Studio City CA', 'Sherman Oaks CA', 'Encino CA', 'Van Nuys CA', 'Burbank CA', 'Glendale CA', 'Pasadena CA', 'Culver City CA', 'Santa Monica CA', 'West Hollywood CA', 'Woodland Hills CA', 'Redondo Beach CA', 'Hermosa Beach CA', 'Manhattan Beach CA', 'Long Beach CA', 'Downtown Los Angeles CA', 'Koreatown Los Angeles CA', 'Echo Park Los Angeles CA', 'Los Feliz Los Angeles CA', 'Atwater Village Los Angeles CA'].map(c => (
+              <option value="">Pick a city</option>
+              {LA_CITIES.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
+          <div className="flex items-end">
+            <button
+              onClick={discoverLeads}
+              disabled={discovering || sweeping || !discoverCity}
+              className="w-full px-6 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {discovering ? 'Searching...' : 'Search City'}
+            </button>
+          </div>
         </div>
-        <button
-          onClick={discoverLeads}
-          disabled={discovering}
-          className="px-6 py-2.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
-        >
-          {discovering ? 'Searching...' : 'Find Leads'}
-        </button>
+
+        {/* Sweep progress */}
+        {sweeping && (
+          <div className="space-y-2">
+            <div className="w-full bg-[var(--bg-surface)] rounded-full h-2">
+              <div
+                className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(sweepProgress.done / sweepProgress.total) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              {sweepProgress.done} of {sweepProgress.total} cities searched
+            </p>
+          </div>
+        )}
+
+        {/* Sweep log */}
+        {sweepLog.length > 0 && (
+          <div className="max-h-64 overflow-y-auto rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] p-3 space-y-1">
+            {sweepLog.map((line, i) => (
+              <p key={i} className={`text-xs font-mono ${line.includes('FAILED') ? 'text-red-400' : 'text-[var(--text-secondary)]'}`}>
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Test Send */}
