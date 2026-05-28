@@ -46,9 +46,9 @@ interface Business {
   reviews?: number;
 }
 
-async function searchSerpAPI(query: string): Promise<Business[]> {
+async function searchSerpAPI(query: string): Promise<{ businesses: Business[]; debug?: string }> {
   const apiKey = process.env.SERPAPI_KEY;
-  if (!apiKey) return [];
+  if (!apiKey) return { businesses: [], debug: 'NO_API_KEY' };
 
   const params = new URLSearchParams({
     engine: 'google_maps',
@@ -59,18 +59,31 @@ async function searchSerpAPI(query: string): Promise<Business[]> {
 
   try {
     const res = await fetch(`https://serpapi.com/search?${params}`);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const text = await res.text();
+      return { businesses: [], debug: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+    }
     const data = await res.json();
-    return (data.local_results || []).map((r: Record<string, unknown>) => ({
-      name: r.title as string,
-      phone: r.phone as string | undefined,
-      address: r.address as string | undefined,
-      website: r.website as string | undefined,
-      rating: r.rating as number | undefined,
-      reviews: r.reviews as number | undefined,
-    }));
-  } catch {
-    return [];
+
+    // Check for error in response
+    if (data.error) {
+      return { businesses: [], debug: `API error: ${data.error}` };
+    }
+
+    const results = data.local_results || [];
+    return {
+      businesses: results.map((r: Record<string, unknown>) => ({
+        name: r.title as string,
+        phone: r.phone as string | undefined,
+        address: r.address as string | undefined,
+        website: r.website as string | undefined,
+        rating: r.rating as number | undefined,
+        reviews: r.reviews as number | undefined,
+      })),
+      debug: results.length === 0 ? `No local_results. Keys: ${Object.keys(data).join(', ')}` : undefined,
+    };
+  } catch (err) {
+    return { businesses: [], debug: `Fetch error: ${err}` };
   }
 }
 
@@ -172,11 +185,14 @@ export async function POST(request: NextRequest) {
   let totalEmails = 0;
   let searchesUsed = 0;
 
+  const debugMessages: string[] = [];
+
   for (const cat of categories) {
     const query = `${cat} in ${city}`;
-    const businesses = await searchSerpAPI(query);
+    const { businesses, debug } = await searchSerpAPI(query);
     searchesUsed++;
     totalFound += businesses.length;
+    if (debug) debugMessages.push(`${cat}: ${debug}`);
 
     for (const biz of businesses) {
       let websiteCheck = { exists: false, score: 0 };
@@ -234,5 +250,6 @@ export async function POST(request: NextRequest) {
     saved: totalSaved,
     emails: totalEmails,
     searchesUsed,
+    debug: debugMessages.length > 0 ? debugMessages : undefined,
   });
 }

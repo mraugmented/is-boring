@@ -209,7 +209,8 @@ export default function ColdOutreachPage() {
           totalFound += data.found;
           totalSaved += data.saved;
           totalEmails += data.emails;
-          setSweepLog(prev => [...prev, `${discoverCity} → ${cat}: ${data.found} found, ${data.saved} saved, ${data.emails} emails`]);
+          const debugInfo = data.debug ? ` [${data.debug}]` : '';
+          setSweepLog(prev => [...prev, `${discoverCity} → ${cat}: ${data.found} found, ${data.saved} saved, ${data.emails} emails${debugInfo}`]);
         }
       } catch { /* continue */ }
       await new Promise(r => setTimeout(r, 500));
