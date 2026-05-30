@@ -9,7 +9,7 @@ const projects = [
       "A custom signage company with over 40 years in the game — but zero online presence. We designed and built their first-ever website from scratch. Full branding, portfolio showcase, quote request flow, and SEO-optimized for local search.",
     tags: ["Web Design", "Branding", "Local SEO", "Lead Gen"],
     image: "/portfolio/barbarian-signs.png",
-    url: "https://barbarian-signs.vercel.app",
+    url: "https://barbariansigns.com",
     featured: true,
   },
   {
