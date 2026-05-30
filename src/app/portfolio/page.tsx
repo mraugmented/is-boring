@@ -46,6 +46,24 @@ const projects = [
     tags: ["Three.js", "3D", "Data Viz", "Animation"],
     image: "/portfolio/lenovo-f1.png",
   },
+  {
+    title: "Portrade",
+    subtitle: "Web3 — Digital Art",
+    description:
+      "A Web3 digital art platform for discovering, collecting, and trading unique digital artwork. Built with blockchain integration for verifiable ownership and seamless wallet connectivity.",
+    tags: ["Web3", "Blockchain", "Digital Art", "NFT"],
+    image: "/portfolio/portrade.avif",
+    featured: true,
+  },
+  {
+    title: "Lotion",
+    subtitle: "Fintech — Cryptocurrency",
+    description:
+      "An AI-powered cryptocurrency platform that combines real-time market intelligence with automated trading insights. Clean interface designed to make crypto accessible to everyday investors.",
+    tags: ["AI", "Crypto", "Fintech", "Dashboard"],
+    image: "/portfolio/lotion.avif",
+    featured: true,
+  },
 ];
 
 export default function PortfolioPage() {
