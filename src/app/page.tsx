@@ -3,44 +3,22 @@ import Image from "next/image";
 import SceneLoader from "@/components/SceneLoader";
 import ContactForm from "@/components/ContactForm";
 
-const projects = [
+const featured = [
   {
     title: "Barbarian Signs",
-    description: "Custom signage company — 40+ years in business. First website ever.",
-    tags: ["Web Design", "Local Business"],
+    description: "First website for a 40-year sign company.",
     image: "/portfolio/barbarian-signs.png",
     url: "https://barbarian-signs.vercel.app",
   },
   {
     title: "Lenovo x Formula 1",
-    description: "Interactive 3D race track experience for Lenovo's F1 partnership.",
-    tags: ["3D", "Interactive", "Enterprise"],
+    description: "Interactive 3D experience for Lenovo's F1 partnership.",
     image: "/portfolio/lenovo-f1-hero.jpg",
   },
   {
     title: "Pillar World",
-    description: "AR platform — app and marketing site. 4.8 stars on the App Store.",
-    tags: ["Mobile App", "Website", "AR"],
+    description: "AR platform — app and website. 4.8 stars.",
     image: "/portfolio/pillar-website.png",
-  },
-  {
-    title: "Pillar World App",
-    description: "iOS app bringing digital art to life through augmented reality.",
-    tags: ["iOS", "AR", "App Store"],
-    image: "/portfolio/pillar-app.png",
-  },
-  {
-    title: "Lenovo F1 Track",
-    description: "3D interactive data visualization of the F1 circuit infrastructure.",
-    tags: ["3D", "Data Viz", "WebGL"],
-    image: "/portfolio/lenovo-f1.png",
-  },
-  {
-    title: "Chrome Coffee Studio",
-    description: "Modern dark-mode site for a Torrance coffee shop. Gen-Z aesthetic.",
-    tags: ["Web Design", "Local Business"],
-    image: "/portfolio/chrome-coffee.png",
-    url: "https://chrome-coffee.vercel.app",
   },
 ];
 
@@ -53,17 +31,17 @@ export default function Home() {
         {/* Nav */}
         <nav className="flex items-center justify-between px-6 py-6 sm:px-12">
           <div className="animate-fade-up">
-            <span className="text-sm font-medium tracking-tight text-white/60 font-mono">
+            <Link href="/" className="text-sm font-medium tracking-tight text-white/60 font-mono">
               is-boring<span className="text-purple-400/80">.</span>
-            </span>
+            </Link>
           </div>
           <div className="flex items-center gap-6">
-            <a
-              href="#work"
+            <Link
+              href="/portfolio"
               className="animate-fade-up text-sm text-white/30 hover:text-white/60 transition-colors font-mono"
             >
               Work
-            </a>
+            </Link>
             <Link
               href="/portal/login"
               className="animate-fade-up text-sm text-white/30 hover:text-white/60 transition-colors font-mono"
@@ -87,63 +65,56 @@ export default function Home() {
           <ContactForm />
         </main>
 
-        {/* Portfolio */}
-        <section id="work" className="px-6 sm:px-12 py-24 sm:py-32">
+        {/* Featured Work */}
+        <section className="px-6 sm:px-12 py-24 sm:py-32">
           <div className="max-w-6xl mx-auto">
-            <p className="text-xs font-mono text-white/30 tracking-widest uppercase mb-3">
-              Selected Work
-            </p>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white/90 mb-4">
-              We build things that <span className="gradient-text">work</span>.
-            </h2>
-            <p className="text-white/30 text-sm sm:text-base max-w-lg mb-16">
-              From local businesses getting their first website to enterprise 3D experiences — here&apos;s some of what we&apos;ve shipped.
-            </p>
+            <div className="flex items-end justify-between mb-14">
+              <div>
+                <p className="text-xs font-mono text-purple-400/60 tracking-widest uppercase mb-3">
+                  Selected Work
+                </p>
+                <h2 className="text-3xl sm:text-4xl font-bold text-white/90">
+                  We build things that <span className="gradient-text">work</span>.
+                </h2>
+              </div>
+              <Link
+                href="/portfolio"
+                className="hidden sm:inline-flex text-sm font-mono text-white/30 hover:text-white/60 transition-colors"
+              >
+                View all &rarr;
+              </Link>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {projects.map((project) => (
-                <div
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {featured.map((project) => (
+                <Link
                   key={project.title}
+                  href="/portfolio"
                   className="group relative rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-white/[0.12] transition-all duration-500"
                 >
-                  <div className="aspect-[16/10] overflow-hidden">
+                  <div className="aspect-[4/3] overflow-hidden">
                     <Image
                       src={project.image}
                       alt={project.title}
-                      width={800}
-                      height={500}
-                      className="w-full h-full object-cover object-top group-hover:scale-[1.03] transition-transform duration-700"
+                      width={600}
+                      height={450}
+                      className="w-full h-full object-cover object-top group-hover:scale-[1.04] transition-transform duration-700"
                     />
                   </div>
-                  <div className="p-5 sm:p-6">
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <h3 className="text-lg font-semibold text-white/90">{project.title}</h3>
-                      {project.url && (
-                        <a
-                          href={project.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 text-xs font-mono text-purple-400/70 hover:text-purple-400 transition-colors"
-                        >
-                          View &rarr;
-                        </a>
-                      )}
-                    </div>
-                    <p className="text-sm text-white/30 mb-4">{project.description}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {project.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-[10px] font-mono text-white/25 px-2.5 py-1 rounded-full border border-white/[0.06]"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="p-5">
+                    <h3 className="text-sm font-semibold text-white/90 mb-1">{project.title}</h3>
+                    <p className="text-xs text-white/30">{project.description}</p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
+
+            <Link
+              href="/portfolio"
+              className="sm:hidden mt-8 block text-center text-sm font-mono text-white/30 hover:text-white/60 transition-colors"
+            >
+              View all work &rarr;
+            </Link>
           </div>
         </section>
 
